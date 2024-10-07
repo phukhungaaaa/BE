@@ -18,7 +18,7 @@ const errorHandler = require("./src/helpers/error-handler.js");
 const app = express();
 app.use(
     cors({
-        origin: ["http://localhost:10000", "https://locket-plum.vercel.app"],
+        origin: ["http://localhost:10000", "https://phunguyn-locket.vercel.app"],
         methods: ["GET", "POST"],
 
         // Nhằm cho phép client gửi cookie lên server
