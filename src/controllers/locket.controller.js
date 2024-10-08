@@ -29,6 +29,13 @@ class LocketController {
             }
 
             if (images) {
+                // Kiểm tra kích thước ảnh, giới hạn 5MB
+                if (images[0].size > 5 * 1024 * 1024) {
+                    return res.status(400).json({
+                        message: "Image size exceeds 5MB",
+                    });
+                }
+
                 await locketService.postImage(
                     userId,
                     idToken,
@@ -36,6 +43,7 @@ class LocketController {
                     caption
                 );
             } else {
+                // Kiểm tra kích thước video, giới hạn 10MB
                 if (videos[0].size > 10 * 1024 * 1024) {
                     return res.status(400).json({
                         message: "Video size exceeds 10MB",
@@ -51,7 +59,7 @@ class LocketController {
             }
 
             return res.status(200).json({
-                message: "Upload image successfully",
+                message: "Upload media successfully",
             });
         } catch (error) {
             next(error);
