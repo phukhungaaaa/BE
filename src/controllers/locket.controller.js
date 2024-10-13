@@ -49,7 +49,10 @@ class LocketController {
                     userId,
                     idToken,
                     videos[0],
-                    caption
+                    caption,
+                    topBgColor,
+                    bottomBgColor,
+                    textColor
                 );
             }
 
