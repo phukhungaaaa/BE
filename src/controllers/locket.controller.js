@@ -13,7 +13,7 @@ class LocketController {
 
     async uploadMedia(req, res, next) {
         try {
-            const { userId, idToken, caption } = req.body;
+            const { userId, idToken, caption, upperBackgroundColor, lowerBackgroundColor, textColor } = req.body;
             const { images, videos } = req.files;
 
             if (!images && !videos) {
@@ -33,7 +33,10 @@ class LocketController {
                     userId,
                     idToken,
                     images[0],
-                    caption
+                    caption,
+                    upperBackgroundColor,
+                    lowerBackgroundColor,
+                    textColor
                 );
             } else {
                 if (videos[0].size > 10 * 1024 * 1024) {
@@ -46,12 +49,15 @@ class LocketController {
                     userId,
                     idToken,
                     videos[0],
-                    caption
+                    caption,
+                    upperBackgroundColor,
+                    lowerBackgroundColor,
+                    textColor
                 );
             }
 
             return res.status(200).json({
-                message: "Upload image successfully",
+                message: "Upload media successfully",
             });
         } catch (error) {
             next(error);
