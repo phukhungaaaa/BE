@@ -2,7 +2,7 @@ const constants = require("./constants");
 const fs = require("fs");
 const { logInfo, logError } = require("../logger.service.js");
 const crypto = require("crypto");
-const axios = require("axios");
+
 const videoService = require("./video-service.js");
 const { decryptLoginData } = require("./security-service.js");
 
@@ -129,7 +129,7 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
     }
 };
 
-const postImage = async (userId, idToken, image, caption, upperBackgroundColor, lowerBackgroundColor, textColor) => {
+const postImage = async (userId, idToken, image, caption, textColor, upperBackgroundColor, lowerBackgroundColor) => {
     try {
         logInfo("postImage", "Start");
         const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
@@ -156,7 +156,7 @@ const postImage = async (userId, idToken, image, caption, upperBackgroundColor, 
                             },
                             background: {
                                 material_blur: "ultra_thin",
-                                colors: [upperBackgroundColor, lowerBackgroundColor],
+                                colors: [upperBackgroundColor, lowerBackgroundColor], // Sử dụng cả hai màu nền
                             },
                         },
                         alt_text: caption,
@@ -187,7 +187,6 @@ const postImage = async (userId, idToken, image, caption, upperBackgroundColor, 
 //#endregion
 
 //#region Video handlers
-
 const getMd5Hash = (str) => {
     return crypto.createHash("md5").update(str).digest("hex");
 };
@@ -201,11 +200,7 @@ const uploadThumbnailFromVideo = async (userId, idToken, video) => {
             75
         );
 
-        return await uploadImageToFirebaseStorage(
-            userId,
-            idToken,
-            thumbnailBytes
-        );
+        return await uploadImageToFirebaseStorage(userId, idToken, thumbnailBytes);
     } catch (error) {
         logError("uploadThumbnailFromVideo", error.message);
         return null;
@@ -215,35 +210,33 @@ const uploadThumbnailFromVideo = async (userId, idToken, video) => {
 const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
     try {
         const videoName = `${Date.now()}_vtd182.mp4`;
-        const videoSize = video.size || video.length;
+        const videoSize = video.length;
 
         const url = `https://firebasestorage.googleapis.com/v0/b/locket-video/o/users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}?uploadType=resumable&name=users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}`;
-        const headers = {
+
+        const initHeaders = {
             "content-type": "application/json; charset=UTF-8",
             authorization: `Bearer ${idToken}`,
             "x-goog-upload-protocol": "resumable",
-            accept: "*/*",
-            "x-goog-upload-command": "start",
             "x-goog-upload-content-length": `${videoSize}`,
-            "accept-language": "vi-VN,vi;q=0.9",
-            "x-firebase-storage-version": "ios/10.13.0",
+            "x-firebase-gmpid": "1:641029076083:ios:cc8eb46290d69b234fa609",
             "user-agent":
                 "com.locket.Locket/1.43.1 iPhone/17.3 hw/iPhone15_3 (GTMSUF/1)",
-            "x-goog-upload-content-type": "video/mp4",
-            "x-firebase-gmpid": "1:641029076083:ios:cc8eb46290d69b234fa609",
         };
 
-        const data = JSON.stringify({
+        const requestData = JSON.stringify({
             name: `users/${userId}/moments/videos/${videoName}`,
             contentType: "video/mp4",
-            bucket: "",
-            metadata: { creator: userId, visibility: "private" },
+            metadata: {
+                creator: userId,
+                visibility: "private",
+            },
         });
 
         const response = await fetch(url, {
             method: "POST",
-            headers: headers,
-            body: data,
+            headers: initHeaders,
+            body: requestData,
         });
 
         if (!response.ok) {
@@ -252,16 +245,12 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
 
         const uploadUrl = response.headers.get("X-Goog-Upload-URL");
 
-        let videoBuffer;
-        if (video instanceof Buffer) {
-            videoBuffer = video;
-        } else {
-            videoBuffer = fs.readFileSync(video.path);
-        }
-
+        const videoBuffer = fs.readFileSync(video.path);
         const uploadResponse = await fetch(uploadUrl, {
             method: "PUT",
-            headers: constants.UPLOADER_HEADERS,
+            headers: {
+                "content-type": "video/mp4",
+            },
             body: videoBuffer,
         });
 
@@ -269,30 +258,19 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
             throw new Error(`Failed to upload video: ${uploadResponse.statusText}`);
         }
 
-        const getUrl = `https://firebasestorage.googleapis.com/v0/b/locket-video/o/users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}`;
-        const getHeaders = {
-            "content-type": "application/json; charset=UTF-8",
-            authorization: `Bearer ${idToken}`,
-        };
-
-        const getResponse = await fetch(getUrl, {
-            method: "GET",
-            headers: getHeaders,
-        });
-
-        if (!getResponse.ok) {
-            throw new Error(`Failed to get download token: ${getResponse.statusText}`);
-        }
-
-        const downloadToken = (await getResponse.json()).downloadTokens;
-        return `${getUrl}?alt=media&token=${downloadToken}`;
+        logInfo("uploadVideoToFirebaseStorage", "End");
+        return `https://firebasestorage.googleapis.com/v0/b/locket-video/o/users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}`;
     } catch (error) {
         logError("uploadVideoToFirebaseStorage", error.message);
         throw error;
+    } finally {
+        if (video.path) {
+            fs.unlinkSync(video.path);
+        }
     }
 };
 
-const postVideo = async (userId, idToken, video, caption, upperBackgroundColor, lowerBackgroundColor, textColor) => {
+const postVideo = async (userId, idToken, video, caption, textColor, upperBackgroundColor, lowerBackgroundColor) => {
     try {
         logInfo("postVideo", "Start");
         const videoUrl = await uploadVideoToFirebaseStorage(userId, idToken, video);
@@ -321,7 +299,7 @@ const postVideo = async (userId, idToken, video, caption, upperBackgroundColor, 
                             },
                             background: {
                                 material_blur: "ultra_thin",
-                                colors: [upperBackgroundColor, lowerBackgroundColor],
+                                colors: [upperBackgroundColor, lowerBackgroundColor], // Sử dụng cả hai màu nền
                             },
                         },
                         alt_text: caption,
