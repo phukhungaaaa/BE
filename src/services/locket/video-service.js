@@ -19,8 +19,6 @@ const unlinkFile = (filePath) => {
 
 const thumbnailData = async (
     videoPath,
-    captionText,
-    captionColor = "white", // Mặc định màu sắc là trắng
     imageFormat = "jpeg",
     maxWidth = 640,
     quality = 75
@@ -42,23 +40,22 @@ const thumbnailData = async (
                             reject(err);
                         }
 
-                        // Xóa file tạm sau khi đọc xong
+                        // Xoá file tạm sau khi đọc xong
                         unlinkFile(tempFilePath);
 
-                        logInfo("thumbnailData", "Thumbnail created successfully");
+                        logInfo(
+                            "thumbnailData",
+                            "Thumbnail created successfully"
+                        );
                         resolve(data);
                     });
                 })
                 .on("error", (err) => {
+                    logError("thumbnailData", err);
                     reject(err);
-                    logInfo("thumbnailData", err);
                 })
-                .outputOptions([
-                    // Thêm caption vào thumbnail
-                    `-vf drawtext="text='${captionText}':fontcolor=${captionColor}:fontsize=24:x=(w-text_w)/2:y=(h-text_h)/2"`,
-                ])
                 .screenshots({
-                    timestamps: ["50%"], // Lấy ảnh tại 50% thời gian video
+                    timestamps: ["50%"],
                     filename: path.basename(tempFilePath),
                     folder: path.join(__dirname, "thumbnails"),
                     size: `${maxWidth}x?`,
@@ -71,6 +68,18 @@ const thumbnailData = async (
     });
 };
 
+// Hàm này sẽ trả về thumbnail dưới dạng buffer
+const getThumbnail = async (videoPath) => {
+    try {
+        const thumbnailBuffer = await thumbnailData(videoPath);
+        return thumbnailBuffer; // Trả về buffer của thumbnail
+    } catch (error) {
+        logError("getThumbnail", error);
+        throw error;
+    }
+};
+
 module.exports = {
     thumbnailData,
+    getThumbnail, // Xuất khẩu hàm getThumbnail
 };
