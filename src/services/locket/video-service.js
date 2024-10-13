@@ -19,6 +19,8 @@ const unlinkFile = (filePath) => {
 
 const thumbnailData = async (
     videoPath,
+    captionText,
+    captionColor = "white", // Mặc định màu sắc là trắng
     imageFormat = "jpeg",
     maxWidth = 640,
     quality = 75
@@ -40,13 +42,10 @@ const thumbnailData = async (
                             reject(err);
                         }
 
-                        // Xoá file tạm sau khi đọc xong
+                        // Xóa file tạm sau khi đọc xong
                         unlinkFile(tempFilePath);
 
-                        logInfo(
-                            "thumbnailData",
-                            "Thumbnail created successfully"
-                        );
+                        logInfo("thumbnailData", "Thumbnail created successfully");
                         resolve(data);
                     });
                 })
@@ -54,8 +53,12 @@ const thumbnailData = async (
                     reject(err);
                     logInfo("thumbnailData", err);
                 })
+                .outputOptions([
+                    // Thêm caption vào thumbnail
+                    `-vf drawtext="text='${captionText}':fontcolor=${captionColor}:fontsize=24:x=(w-text_w)/2:y=(h-text_h)/2"`,
+                ])
                 .screenshots({
-                    timestamps: ["50%"],
+                    timestamps: ["50%"], // Lấy ảnh tại 50% thời gian video
                     filename: path.basename(tempFilePath),
                     folder: path.join(__dirname, "thumbnails"),
                     size: `${maxWidth}x?`,
