@@ -129,14 +129,10 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
     }
 };
 
-const postImage = async (userId, idToken, image, caption, textColor, upperBackgroundColor) => {
+const postImage = async (userId, idToken, image, caption, upperBackgroundColor, lowerBackgroundColor, textColor) => {
     try {
         logInfo("postImage", "Start");
-        const imageUrl = await uploadImageToFirebaseStorage(
-            userId,
-            idToken,
-            image
-        );
+        const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
 
         const postHeaders = {
             "Content-Type": "application/json",
@@ -160,7 +156,7 @@ const postImage = async (userId, idToken, image, caption, textColor, upperBackgr
                             },
                             background: {
                                 material_blur: "ultra_thin",
-                                colors: [upperBackgroundColor],
+                                colors: [upperBackgroundColor, lowerBackgroundColor],
                             },
                         },
                         alt_text: caption,
@@ -191,6 +187,7 @@ const postImage = async (userId, idToken, image, caption, textColor, upperBackgr
 //#endregion
 
 //#region Video handlers
+
 const getMd5Hash = (str) => {
     return crypto.createHash("md5").update(str).digest("hex");
 };
@@ -218,7 +215,7 @@ const uploadThumbnailFromVideo = async (userId, idToken, video) => {
 const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
     try {
         const videoName = `${Date.now()}_vtd182.mp4`;
-        const videoSize = video.length;
+        const videoSize = video.size || video.length;
 
         const url = `https://firebasestorage.googleapis.com/v0/b/locket-video/o/users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}?uploadType=resumable&name=users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}`;
         const headers = {
@@ -254,10 +251,18 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
         }
 
         const uploadUrl = response.headers.get("X-Goog-Upload-URL");
+
+        let videoBuffer;
+        if (video instanceof Buffer) {
+            videoBuffer = video;
+        } else {
+            videoBuffer = fs.readFileSync(video.path);
+        }
+
         const uploadResponse = await fetch(uploadUrl, {
             method: "PUT",
             headers: constants.UPLOADER_HEADERS,
-            body: video,
+            body: videoBuffer,
         });
 
         if (!uploadResponse.ok) {
