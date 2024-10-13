@@ -43,16 +43,13 @@ const thumbnailData = async (
                         // Xoá file tạm sau khi đọc xong
                         unlinkFile(tempFilePath);
 
-                        logInfo(
-                            "thumbnailData",
-                            "Thumbnail created successfully"
-                        );
+                        logInfo("thumbnailData", "Thumbnail created successfully");
                         resolve(data);
                     });
                 })
                 .on("error", (err) => {
-                    logError("thumbnailData", err);
                     reject(err);
+                    logInfo("thumbnailData", err);
                 })
                 .screenshots({
                     timestamps: ["50%"],
@@ -68,18 +65,6 @@ const thumbnailData = async (
     });
 };
 
-// Hàm này sẽ trả về thumbnail dưới dạng buffer
-const getThumbnail = async (videoPath) => {
-    try {
-        const thumbnailBuffer = await thumbnailData(videoPath);
-        return thumbnailBuffer; // Trả về buffer của thumbnail
-    } catch (error) {
-        logError("getThumbnail", error);
-        throw error;
-    }
-};
-
 module.exports = {
     thumbnailData,
-    getThumbnail, // Xuất khẩu hàm getThumbnail
 };
