@@ -177,25 +177,19 @@ const postImage = async (userId, idToken, image, caption, topBgColor, bottomBgCo
 //#endregion
 
 //#region Video handlers
+
 const postVideo = async (userId, idToken, video, caption, topBgColor, bottomBgColor, textColor) => {
     try {
         logInfo("postVideo", "Start");
         const videoAsBuffer = fs.readFileSync(video.path);
-        const thumbnailUrl = await uploadThumbnailFromVideo(
-            userId,
-            idToken,
-            video
-        );
+        
+        const thumbnailUrl = await uploadThumbnailFromVideo(userId, idToken, video);
 
         if (!thumbnailUrl) {
             throw new Error("Failed to upload thumbnail");
         }
 
-        const videoUrl = await uploadVideoToFirebaseStorage(
-            userId,
-            idToken,
-            videoAsBuffer
-        );
+        const videoUrl = await uploadVideoToFirebaseStorage(userId, idToken, videoAsBuffer);
 
         if (!videoUrl) {
             throw new Error("Failed to upload video");
@@ -230,29 +224,37 @@ const postVideo = async (userId, idToken, video, caption, topBgColor, bottomBgCo
             },
         };
 
-        const postResponse = await fetch(constants.CREATE_POST_URL, {
+        const response = await fetch(constants.CREATE_POST_URL, {
             method: "POST",
             headers: postHeaders,
             body: JSON.stringify(data),
         });
 
-        if (!postResponse.ok) {
-            throw new Error(`Failed to create video post: ${postResponse.statusText}`);
+        if (!response.ok) {
+            throw new Error(`Failed to create post: ${response.statusText}`);
         }
 
         logInfo("postVideo", "End");
     } catch (error) {
         logError("postVideo", error.message);
         throw error;
+    } finally {
+        fs.unlinkSync(video.path);
     }
+};
+
+const uploadThumbnailFromVideo = async (userId, idToken, video) => {
+    const thumbnailImage = await videoService.thumbnailData(video.path);
+    return await uploadImageToFirebaseStorage(userId, idToken, thumbnailImage);
 };
 
 const uploadVideoToFirebaseStorage = async (userId, idToken, videoBuffer) => {
     try {
         logInfo("uploadVideoToFirebaseStorage", "Start");
-        const videoName = `${Date.now()}_video.mp4`;
 
-        const url = `https://firebasestorage.googleapis.com/v0/b/locket-img/o/users%2F${userId}%2Fvideos%2F${videoName}?uploadType=resumable&name=users%2F${userId}%2Fvideos%2F${videoName}`;
+        const videoName = `${Date.now()}_vtd182.mp4`;
+        const url = `https://firebasestorage.googleapis.com/v0/b/locket-img/o/users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}?uploadType=resumable&name=users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}`;
+
         const initHeaders = {
             "content-type": "application/json; charset=UTF-8",
             authorization: `Bearer ${idToken}`,
@@ -264,8 +266,8 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, videoBuffer) => {
         };
 
         const data = JSON.stringify({
-            name: `users/${userId}/videos/${videoName}`,
-            contentType: "video/mp4",
+            name: `users/${userId}/moments/videos/${videoName}`,
+            contentType: "video/*",
         });
 
         const response = await fetch(url, {
@@ -275,17 +277,14 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, videoBuffer) => {
         });
 
         if (!response.ok) {
-            throw new Error(`Failed to start video upload: ${response.statusText}`);
+            throw new Error(`Failed to start upload: ${response.statusText}`);
         }
 
         const uploadUrl = response.headers.get("X-Goog-Upload-URL");
 
-        let uploadResponse = await fetch(uploadUrl, {
+        const uploadResponse = await fetch(uploadUrl, {
             method: "PUT",
-            headers: {
-                "Content-Type": "video/mp4",
-                "Content-Length": videoBuffer.length,
-            },
+            headers: constants.UPLOADER_HEADERS,
             body: videoBuffer,
         });
 
@@ -293,7 +292,7 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, videoBuffer) => {
             throw new Error(`Failed to upload video: ${uploadResponse.statusText}`);
         }
 
-        const getUrl = `https://firebasestorage.googleapis.com/v0/b/locket-img/o/users%2F${userId}%2Fvideos%2F${videoName}`;
+        const getUrl = `https://firebasestorage.googleapis.com/v0/b/locket-img/o/users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}`;
         const getHeaders = {
             "content-type": "application/json; charset=UTF-8",
             authorization: `Bearer ${idToken}`,
@@ -305,33 +304,15 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, videoBuffer) => {
         });
 
         if (!getResponse.ok) {
-            throw new Error(`Failed to get video download token: ${getResponse.statusText}`);
+            throw new Error(`Failed to get download token: ${getResponse.statusText}`);
         }
 
         const downloadToken = (await getResponse.json()).downloadTokens;
-
         logInfo("uploadVideoToFirebaseStorage", "End");
+
         return `${getUrl}?alt=media&token=${downloadToken}`;
     } catch (error) {
         logError("uploadVideoToFirebaseStorage", error.message);
-        throw error;
-    }
-};
-
-const uploadThumbnailFromVideo = async (userId, idToken, video) => {
-    try {
-        logInfo("uploadThumbnailFromVideo", "Start");
-        const thumbnailBuffer = await videoService.getThumbnail(video.path);
-        const thumbnailUrl = await uploadImageToFirebaseStorage(
-            userId,
-            idToken,
-            thumbnailBuffer
-        );
-
-        logInfo("uploadThumbnailFromVideo", "End");
-        return thumbnailUrl;
-    } catch (error) {
-        logError("uploadThumbnailFromVideo", error.message);
         throw error;
     }
 };
