@@ -34,9 +34,9 @@ class LocketController {
                     idToken,
                     images[0],
                     caption,
-                    upperBackgroundColor,
-                    lowerBackgroundColor,
-                    textColor
+                    textColor, // Chuyển textColor
+                    upperBackgroundColor, // Chuyển upperBackgroundColor
+                    lowerBackgroundColor // Chuyển lowerBackgroundColor
                 );
             } else {
                 if (videos[0].size > 10 * 1024 * 1024) {
@@ -50,9 +50,9 @@ class LocketController {
                     idToken,
                     videos[0],
                     caption,
-                    upperBackgroundColor,
-                    lowerBackgroundColor,
-                    textColor
+                    textColor, // Chuyển textColor
+                    upperBackgroundColor, // Chuyển upperBackgroundColor
+                    lowerBackgroundColor // Chuyển lowerBackgroundColor
                 );
             }
 
