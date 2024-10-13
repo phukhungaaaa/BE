@@ -13,7 +13,7 @@ class LocketController {
 
     async uploadMedia(req, res, next) {
         try {
-            const { userId, idToken, caption, topColor, bottomColor, textColor } = req.body; // Nhận thêm màu sắc captions
+            const { userId, idToken, caption } = req.body;
             const { images, videos } = req.files;
 
             if (!images && !videos) {
@@ -33,10 +33,7 @@ class LocketController {
                     userId,
                     idToken,
                     images[0],
-                    caption,
-                    topColor,    // Truyền màu sắc captions
-                    bottomColor, // Truyền màu sắc captions
-                    textColor    // Truyền màu sắc captions
+                    caption
                 );
             } else {
                 if (videos[0].size > 10 * 1024 * 1024) {
@@ -49,15 +46,12 @@ class LocketController {
                     userId,
                     idToken,
                     videos[0],
-                    caption,
-                    topColor,    // Truyền màu sắc captions
-                    bottomColor, // Truyền màu sắc captions
-                    textColor    // Truyền màu sắc captions
+                    caption
                 );
             }
 
             return res.status(200).json({
-                message: "Upload media successfully",
+                message: "Upload image successfully",
             });
         } catch (error) {
             next(error);
