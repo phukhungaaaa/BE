@@ -145,7 +145,7 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
     }
 };
 
-const postImage = async (userId, idToken, image, caption, textColor) => {
+const postImage = async (userId, idToken, image, caption) => {
     try {
         logInfo("postImage", "Start");
         const imageUrl = await uploadImageToFirebaseStorage(
@@ -164,7 +164,6 @@ const postImage = async (userId, idToken, image, caption, textColor) => {
             data: {
                 thumbnail_url: imageUrl,
                 caption: caption,
-                text_color: textColor, // Thêm tham số text_color
                 sent_to_all: true,
             },
         });
@@ -260,9 +259,8 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
             throw new Error(`Failed to start upload: ${response.statusText}`);
         }
 
-        // Giai đoạn 2: Tải video lên thông qua URL tạm thời đã nhận được từ giai đoạn 1
+        // Giai đoạn 2: Tải video lên thông qua URL resumable trả về từ bước 1
         const uploadUrl = response.headers.get("X-Goog-Upload-URL");
-
         const uploadResponse = await fetch(uploadUrl, {
             method: "PUT",
             headers: constants.UPLOADER_HEADERS,
@@ -270,10 +268,12 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
         });
 
         if (!uploadResponse.ok) {
-            throw new Error(`Failed to upload video: ${uploadResponse.statusText}`);
+            throw new Error(
+                `Failed to upload video: ${uploadResponse.statusText}`
+            );
         }
 
-        // Giai đoạn 3: Lấy URL tải về video từ Firebase Storage
+        // Giai đoạn 3: Lấy URL của video đã tải lên và download token. download token này sẽ quyết định quyền truy cập vào video
         const getUrl = `https://firebasestorage.googleapis.com/v0/b/locket-video/o/users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}`;
         const getHeaders = {
             "content-type": "application/json; charset=UTF-8",
@@ -284,13 +284,9 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
             method: "GET",
             headers: getHeaders,
         });
-
-        if (!getResponse.ok) {
-            throw new Error(`Failed to get download token: ${getResponse.statusText}`);
-        }
-
         const downloadToken = (await getResponse.json()).downloadTokens;
 
+        logInfo("uploadVideoToFirebaseStorage", "End");
         return `${getUrl}?alt=media&token=${downloadToken}`;
     } catch (error) {
         logError("uploadVideoToFirebaseStorage", error.message);
@@ -298,43 +294,160 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
     }
 };
 
-const postVideo = async (userId, idToken, video, caption, textColor) => {
+const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption) => {
     try {
-        logInfo("postVideo", "Start");
-        
-        const videoUrl = await uploadVideoToFirebaseStorage(userId, idToken, video);
-        const thumbnailUrl = await uploadThumbnailFromVideo(userId, idToken, video);
-
-        // Tạo bài viết mới với video
         const postHeaders = {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${idToken}`,
+            "content-type": "application/json",
+            authorization: `Bearer ${idToken}`,
         };
 
-        const postData = JSON.stringify({
+        const data = {
             data: {
-                video_url: videoUrl,
                 thumbnail_url: thumbnailUrl,
-                caption: caption,
-                text_color: textColor, // Thêm tham số text_color
+                video_url: videoUrl,
+                md5: getMd5Hash(videoUrl),
+                recipients: [],
+                analytics: {
+                    experiments: {
+                        flag_4: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "43",
+                        },
+                        flag_10: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "505",
+                        },
+                        flag_23: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "400",
+                        },
+                        flag_22: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "1203",
+                        },
+                        flag_19: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "52",
+                        },
+                        flag_18: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "1203",
+                        },
+                        flag_16: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "303",
+                        },
+                        flag_15: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "501",
+                        },
+                        flag_14: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "500",
+                        },
+                        flag_25: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "23",
+                        },
+                    },
+                    amplitude: {
+                        device_id: "BF5D1FD7-9E4D-4F8B-AB68-B89ED20398A6",
+                        session_id: {
+                            value: "1722437166613",
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                        },
+                    },
+                    google_analytics: {
+                        app_instance_id: "5BDC04DA16FF4B0C9CA14FFB9C502900",
+                    },
+                    platform: "ios",
+                },
                 sent_to_all: true,
+                caption: caption,
+                overlays: [
+                    {
+                        data: {
+                            text: caption,
+                            text_color: "#FFFFFFE6",
+                            type: "standard",
+                            max_lines: {
+                                "@type":
+                                    "type.googleapis.com/google.protobuf.Int64Value",
+                                value: "4",
+                            },
+                            background: {
+                                material_blur: "ultra_thin",
+                                colors: [],
+                            },
+                        },
+                        alt_text: caption,
+                        overlay_id: "caption:standard",
+                        overlay_type: "caption",
+                    },
+                ],
             },
-        });
+        };
 
-        const postResponse = await fetch(constants.CREATE_POST_URL, {
+        const response = await fetch(constants.CREATE_POST_URL, {
             method: "POST",
             headers: postHeaders,
-            body: postData,
+            body: JSON.stringify(data),
         });
 
-        if (!postResponse.ok) {
-            throw new Error(`Failed to create post: ${postResponse.statusText}`);
+        if (!response.ok) {
+            throw new Error(`Failed to create post: ${response.statusText}`);
         }
+
+        logInfo("postVideoToLocket", "End");
+    } catch (error) {
+        logError("postVideoToLocket", error.message);
+        throw error;
+    }
+};
+
+const postVideo = async (userId, idToken, video, caption) => {
+    try {
+        logInfo("postVideo", "Start");
+        const videoAsBuffer = fs.readFileSync(video.path);
+        const thumbnailUrl = await uploadThumbnailFromVideo(
+            userId,
+            idToken,
+            video
+        );
+
+        if (!thumbnailUrl) {
+            throw new Error("Failed to upload thumbnail");
+        }
+
+        const videoUrl = await uploadVideoToFirebaseStorage(
+            userId,
+            idToken,
+            videoAsBuffer
+        );
+
+        if (!videoUrl) {
+            throw new Error("Failed to upload video");
+        }
+
+        await postVideoToLocket(idToken, videoUrl, thumbnailUrl, caption);
 
         logInfo("postVideo", "End");
     } catch (error) {
         logError("postVideo", error.message);
         throw error;
+    } finally {
+        fs.unlinkSync(video.path);
     }
 };
 
