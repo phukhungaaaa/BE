@@ -43,11 +43,20 @@ const login = async (email, password) => {
 
 //#region Image handlers
 
+/**
+ * Uploads an image to Firebase Storage.
+ *
+ * @param {string} userId
+ * @param {string} idToken
+ * @param {File|Buffer} image - The image to be uploaded. Can be a `File` object or a `Buffer`.
+ * @returns
+ */
 const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
     try {
         logInfo("uploadImageToFirebaseStorage", "Start");
         const imageName = `${Date.now()}_vtd182.webp`;
 
+        // Bước 1: Khởi tạo quá trình upload
         const url = `https://firebasestorage.googleapis.com/v0/b/locket-img/o/users%2F${userId}%2Fmoments%2Fthumbnails%2F${imageName}?uploadType=resumable&name=users%2F${userId}%2Fmoments%2Fthumbnails%2F${imageName}`;
         const initHeaders = {
             "content-type": "application/json; charset=UTF-8",
@@ -83,6 +92,7 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
 
         const uploadUrl = response.headers.get("X-Goog-Upload-URL");
 
+        // Bước 2: Tải dữ liệu hình ảnh lên thông qua URL resumable trả về từ bước 1
         let imageBuffer;
         if (image instanceof Buffer) {
             imageBuffer = image;
@@ -102,6 +112,7 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
             );
         }
 
+        // Lấy URL tải về hình ảnh từ Firebase Storage
         const getUrl = `https://firebasestorage.googleapis.com/v0/b/locket-img/o/users%2F${userId}%2Fmoments%2Fthumbnails%2F${imageName}`;
         const getHeaders = {
             "content-type": "application/json; charset=UTF-8",
@@ -127,6 +138,7 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
         logError("uploadImageToFirebaseStorage", error.message);
         throw error;
     } finally {
+        // Xoá file ảnh tạm
         if (image.path) {
             fs.unlinkSync(image.path);
         }
@@ -142,6 +154,7 @@ const postImage = async (userId, idToken, image, caption, topBgColor, bottomBgCo
             image
         );
 
+        // Tạo bài viết mới với màu sắc caption
         const postHeaders = {
             "Content-Type": "application/json",
             Authorization: `Bearer ${idToken}`,
@@ -156,15 +169,14 @@ const postImage = async (userId, idToken, image, caption, topBgColor, bottomBgCo
                     {
                         data: {
                             text: caption,
-                            text_color: textColor, // Màu chữ
+                            text_color: textColor,
                             type: "standard",
                             max_lines: {
                                 "@type": "type.googleapis.com/google.protobuf.Int64Value",
                                 value: "4",
                             },
                             background: {
-                                material_blur: "ultra_thin",
-                                colors: [topBgColor, bottomBgColor], // Màu nền
+                                colors: [topBgColor, bottomBgColor],
                             },
                         },
                         alt_text: caption,
@@ -194,6 +206,8 @@ const postImage = async (userId, idToken, image, caption, topBgColor, bottomBgCo
     }
 };
 
+//#endregion
+
 //#region Video handlers
 const getMd5Hash = (str) => {
     return crypto.createHash("md5").update(str).digest("hex");
@@ -219,13 +233,20 @@ const uploadThumbnailFromVideo = async (userId, idToken, video) => {
     }
 };
 
+/**
+ *
+ * @param {*} userId
+ * @param {*} idToken
+ * @param {Byte} video
+ */
 const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
     try {
         const videoName = `${Date.now()}_vtd182.mp4`;
         const videoSize = video.length;
 
-        const url = `https://firebasestorage.googleapis.com/v0/b/locket-img/o/users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}?uploadType=resumable&name=users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}`;
-        const initHeaders = {
+        // Giai đoạn 1: Khởi tạo quá trình upload, sẽ nhận lại được URL tạm thời để tải video lên
+        const url = `https://firebasestorage.googleapis.com/v0/b/locket-video/o/users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}?uploadType=resumable&name=users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}`;
+        const headers = {
             "content-type": "application/json; charset=UTF-8",
             authorization: `Bearer ${idToken}`,
             "x-goog-upload-protocol": "resumable",
@@ -242,35 +263,37 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
 
         const data = JSON.stringify({
             name: `users/${userId}/moments/videos/${videoName}`,
-            contentType: "video/*",
+            contentType: "video/mp4",
             bucket: "",
             metadata: { creator: userId, visibility: "private" },
         });
 
         const response = await fetch(url, {
             method: "POST",
-            headers: initHeaders,
+            headers: headers,
             body: data,
         });
 
         if (!response.ok) {
-            throw new Error(`Failed to start video upload: ${response.statusText}`);
+            throw new Error(`Failed to start upload: ${response.statusText}`);
         }
 
+        // Giai đoạn 2: Tải video lên thông qua URL resumable trả về từ bước 1
         const uploadUrl = response.headers.get("X-Goog-Upload-URL");
-
-        const videoBuffer = fs.readFileSync(video.path);
         const uploadResponse = await fetch(uploadUrl, {
             method: "PUT",
             headers: constants.UPLOADER_HEADERS,
-            body: videoBuffer,
+            body: video,
         });
 
         if (!uploadResponse.ok) {
-            throw new Error(`Failed to upload video: ${uploadResponse.statusText}`);
+            throw new Error(
+                `Failed to upload video: ${uploadResponse.statusText}`
+            );
         }
 
-        const getUrl = `https://firebasestorage.googleapis.com/v0/b/locket-img/o/users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}`;
+        // Giai đoạn 3: Lấy URL của video đã tải lên và download token. download token này sẽ quyết định quyền truy cập vào video
+        const getUrl = `https://firebasestorage.googleapis.com/v0/b/locket-video/o/users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}`;
         const getHeaders = {
             "content-type": "application/json; charset=UTF-8",
             authorization: `Bearer ${idToken}`,
@@ -280,51 +303,110 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
             method: "GET",
             headers: getHeaders,
         });
-
-        if (!getResponse.ok) {
-            throw new Error(`Failed to get download token: ${getResponse.statusText}`);
-        }
-
         const downloadToken = (await getResponse.json()).downloadTokens;
-        logInfo("uploadVideoToFirebaseStorage", "End");
 
+        logInfo("uploadVideoToFirebaseStorage", "End");
         return `${getUrl}?alt=media&token=${downloadToken}`;
     } catch (error) {
         logError("uploadVideoToFirebaseStorage", error.message);
         throw error;
-    } finally {
-        if (video.path) {
-            fs.unlinkSync(video.path);
-        }
     }
 };
 
-const postVideo = async (userId, idToken, video, caption) => {
+const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topBgColor, bottomBgColor, textColor) => {
     try {
-        logInfo("postVideo", "Start");
-        const videoUrl = await uploadVideoToFirebaseStorage(userId, idToken, video);
-
-        const thumbnailUrl = await uploadThumbnailFromVideo(userId, idToken, video);
-
         const postHeaders = {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${idToken}`,
+            "content-type": "application/json",
+            authorization: `Bearer ${idToken}`,
         };
 
-        const postData = JSON.stringify({
+        const data = {
             data: {
-                video_url: videoUrl,
                 thumbnail_url: thumbnailUrl,
-                caption: caption,
+                video_url: videoUrl,
+                md5: getMd5Hash(videoUrl),
+                recipients: [],
+                analytics: {
+                    experiments: {
+                        flag_4: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "43",
+                        },
+                        flag_10: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "505",
+                        },
+                        flag_23: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "400",
+                        },
+                        flag_22: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "1203",
+                        },
+                        flag_19: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "52",
+                        },
+                        flag_18: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "1203",
+                        },
+                        flag_16: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "303",
+                        },
+                        flag_15: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "501",
+                        },
+                        flag_14: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "500",
+                        },
+                        flag_25: {
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "23",
+                        },
+                    },
+                    amplitude: {
+                        device_id: "BF5D1FD7-9E4D-4F8B-AB68-B89ED20398A6",
+                        session_id: {
+                            value: "1722437166613",
+                            "@type":
+                                "type.googleapis.com/google.protobuf.Int64Value",
+                        },
+                    },
+                    google_analytics: {
+                        app_instance_id: "5BDC04DA16FF4B0C9CA14FFB9C502900",
+                    },
+                    platform: "ios",
+                },
                 sent_to_all: true,
+                caption: caption,
                 overlays: [
                     {
                         data: {
                             text: caption,
+                            text_color: textColor,
                             type: "standard",
                             max_lines: {
-                                "@type": "type.googleapis.com/google.protobuf.Int64Value",
+                                "@type":
+                                    "type.googleapis.com/google.protobuf.Int64Value",
                                 value: "4",
+                            },
+                            background: {
+                                colors: [topBgColor, bottomBgColor],
                             },
                         },
                         alt_text: caption,
@@ -333,27 +415,66 @@ const postVideo = async (userId, idToken, video, caption) => {
                     },
                 ],
             },
-        });
+        };
 
-        const postResponse = await fetch(constants.CREATE_POST_URL, {
+        const response = await fetch(constants.CREATE_POST_URL, {
             method: "POST",
             headers: postHeaders,
-            body: postData,
+            body: JSON.stringify(data),
         });
 
-        if (!postResponse.ok) {
-            throw new Error(`Failed to create post: ${postResponse.statusText}`);
+        if (!response.ok) {
+            throw new Error(`Failed to create post: ${response.statusText}`);
         }
+
+        logInfo("postVideoToLocket", "End");
+    } catch (error) {
+        logError("postVideoToLocket", error.message);
+        throw error;
+    }
+};
+
+const postVideo = async (userId, idToken, video, caption, topBgColor, bottomBgColor, textColor) => {
+    try {
+        logInfo("postVideo", "Start");
+        const videoAsBuffer = fs.readFileSync(video.path);
+        const thumbnailUrl = await uploadThumbnailFromVideo(
+            userId,
+            idToken,
+            video
+        );
+
+        if (!thumbnailUrl) {
+            throw new Error("Failed to upload thumbnail");
+        }
+
+        const videoUrl = await uploadVideoToFirebaseStorage(
+            userId,
+            idToken,
+            videoAsBuffer
+        );
+
+        if (!videoUrl) {
+            throw new Error("Failed to upload video");
+        }
+
+        await postVideoToLocket(idToken, videoUrl, thumbnailUrl, caption, topBgColor, bottomBgColor, textColor);
 
         logInfo("postVideo", "End");
     } catch (error) {
         logError("postVideo", error.message);
         throw error;
+    } finally {
+        fs.unlinkSync(video.path);
     }
 };
 
+//#endregion
+
 module.exports = {
     login,
+    uploadImageToFirebaseStorage,
     postImage,
+    uploadVideoToFirebaseStorage,
     postVideo,
 };
