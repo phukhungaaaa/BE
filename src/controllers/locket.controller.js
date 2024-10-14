@@ -13,50 +13,48 @@ class LocketController {
 
     async uploadMedia(req, res, next) {
         try {
-            const { userId, idToken, caption, topBgColor, bottomBgColor, textColor } = req.body; // Nhận các tham số màu sắc
+            const { userId, idToken, caption, topBgColor, bottomBgColor, textColor } = req.body; // Nhận thông tin màu sắc
             const { images, videos } = req.files;
 
-            // Kiểm tra xem có media nào không
             if (!images && !videos) {
                 return res.status(400).json({
                     message: "No media found",
                 });
             }
 
-            // Kiểm tra xem chỉ cho phép một loại media
             if (images && videos) {
                 return res.status(400).json({
                     message: "Only one type of media is allowed",
                 });
             }
 
-            // Xử lý upload hình ảnh
             if (images) {
+                // Gọi đến locketService với màu sắc
                 await locketService.postImage(
                     userId,
                     idToken,
                     images[0],
                     caption,
-                    topBgColor,    // Gửi màu sắc
-                    bottomBgColor, // Gửi màu sắc
-                    textColor      // Gửi màu sắc
+                    topBgColor, // Truyền màu sắc cho postImage
+                    bottomBgColor,
+                    textColor
                 );
             } else {
-                // Xử lý upload video với giới hạn kích thước
-                if (videos[0].size > 10 * 1024 * 1024) {
+                if (videos[0].size > 10 * 1024 * 1024) { // Kiểm tra kích thước video
                     return res.status(400).json({
                         message: "Video size exceeds 10MB",
                     });
                 }
 
+                // Gọi đến locketService với màu sắc
                 await locketService.postVideo(
                     userId,
                     idToken,
                     videos[0],
                     caption,
-                    topBgColor,    // Gửi màu sắc
-                    bottomBgColor, // Gửi màu sắc
-                    textColor      // Gửi màu sắc
+                    topBgColor, // Truyền màu sắc cho postVideo
+                    bottomBgColor,
+                    textColor
                 );
             }
 
