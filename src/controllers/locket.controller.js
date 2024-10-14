@@ -13,7 +13,7 @@ class LocketController {
 
     async uploadMedia(req, res, next) {
         try {
-            const { userId, idToken, caption, captionColor, backgroundColor, textColor } = req.body;
+            const { userId, idToken, caption, captionColorTop, captionColorBottom } = req.body;
             const { images, videos } = req.files;
 
             if (!images && !videos) {
@@ -34,9 +34,8 @@ class LocketController {
                     idToken,
                     images[0],
                     caption,
-                    captionColor,
-                    backgroundColor,
-                    textColor
+                    captionColorTop,
+                    captionColorBottom
                 );
             } else {
                 if (videos[0].size > 10 * 1024 * 1024) {
@@ -50,9 +49,8 @@ class LocketController {
                     idToken,
                     videos[0],
                     caption,
-                    captionColor,
-                    backgroundColor,
-                    textColor
+                    captionColorTop,
+                    captionColorBottom
                 );
             }
 
