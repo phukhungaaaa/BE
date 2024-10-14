@@ -1,57 +1,73 @@
-const express = require("express");
-const multer = require("multer");
-const {
-    login,
-    postImage,
-    postVideo,
-} = require("./locketService.js");
+const locketService = require("../services/locket/locket-service.js");
 
-const router = express.Router();
-const upload = multer({ dest: "uploads/" }); // Dùng multer để tải lên tạm thời
-
-// Đăng nhập
-router.post("/login", async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const userData = await login(email, password);
-        res.json(userData);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-});
-
-// Tải lên ảnh
-router.post("/upload/image", upload.single("image"), async (req, res) => {
-    try {
-        const { userId, idToken, caption, topBgColor, bottomBgColor, textColor } = req.body;
-        const image = req.file;
-
-        if (!image) {
-            return res.status(400).json({ message: "Image file is required" });
+class LocketController {
+    async login(req, res, next) {
+        try {
+            const { email, password } = req.body;
+            const user = await locketService.login(email, password);
+            return res.status(200).json({ user });
+        } catch (error) {
+            next(error);
         }
-
-        await postImage(userId, idToken, image, caption, topBgColor, bottomBgColor, textColor);
-        res.status(201).json({ message: "Image uploaded successfully" });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
     }
-});
 
-// Tải lên video
-router.post("/upload/video", upload.single("video"), async (req, res) => {
-    try {
-        const { userId, idToken, caption, topBgColor, bottomBgColor, textColor } = req.body;
-        const video = req.file;
+    async uploadMedia(req, res, next) {
+        try {
+            const { userId, idToken, caption, topBgColor, bottomBgColor, textColor } = req.body;
+            const { images, videos } = req.files;
 
-        if (!video) {
-            return res.status(400).json({ message: "Video file is required" });
+            // Kiểm tra xem có media nào không
+            if (!images && !videos) {
+                return res.status(400).json({
+                    message: "No media found",
+                });
+            }
+
+            // Kiểm tra loại media
+            if (images && videos) {
+                return res.status(400).json({
+                    message: "Only one type of media is allowed",
+                });
+            }
+
+            // Upload hình ảnh
+            if (images) {
+                await locketService.postImage(
+                    userId,
+                    idToken,
+                    images[0],
+                    caption,
+                    topBgColor,
+                    bottomBgColor,
+                    textColor
+                );
+            } 
+            // Upload video
+            else {
+                if (videos[0].size > 10 * 1024 * 1024) { // Kiểm tra kích thước video
+                    return res.status(400).json({
+                        message: "Video size exceeds 10MB",
+                    });
+                }
+
+                await locketService.postVideo(
+                    userId,
+                    idToken,
+                    videos[0],
+                    caption,
+                    topBgColor,
+                    bottomBgColor,
+                    textColor
+                );
+            }
+
+            return res.status(200).json({
+                message: "Upload media successfully",
+            });
+        } catch (error) {
+            next(error);
         }
-
-        await postVideo(userId, idToken, video, caption, topBgColor, bottomBgColor, textColor);
-        res.status(201).json({ message: "Video uploaded successfully" });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
     }
-});
+}
 
-module.exports = router;
+module.exports = new LocketController();
