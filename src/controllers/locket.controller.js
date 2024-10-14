@@ -34,9 +34,9 @@ class LocketController {
                     idToken,
                     images[0],
                     caption,
-                    topBgColor,    // Truyền màu nền phần trên
-                    bottomBgColor, // Truyền màu nền phần dưới
-                    textColor      // Truyền màu chữ
+                    topBgColor,
+                    bottomBgColor,
+                    textColor
                 );
             } else {
                 if (videos[0].size > 10 * 1024 * 1024) {
@@ -49,15 +49,12 @@ class LocketController {
                     userId,
                     idToken,
                     videos[0],
-                    caption,
-                    topBgColor,    // Truyền màu nền phần trên
-                    bottomBgColor, // Truyền màu nền phần dưới
-                    textColor      // Truyền màu chữ
+                    caption
                 );
             }
 
             return res.status(200).json({
-                message: "Upload image successfully",
+                message: "Upload media successfully",
             });
         } catch (error) {
             next(error);
