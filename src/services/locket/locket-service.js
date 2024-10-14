@@ -48,6 +48,7 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
         logInfo("uploadImageToFirebaseStorage", "Start");
         const imageName = `${Date.now()}_vtd182.webp`;
 
+        // Bước 1: Khởi tạo quá trình upload
         const url = `https://firebasestorage.googleapis.com/v0/b/locket-img/o/users%2F${userId}%2Fmoments%2Fthumbnails%2F${imageName}?uploadType=resumable&name=users%2F${userId}%2Fmoments%2Fthumbnails%2F${imageName}`;
         const initHeaders = {
             "content-type": "application/json; charset=UTF-8",
@@ -83,6 +84,7 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
 
         const uploadUrl = response.headers.get("X-Goog-Upload-URL");
 
+        // Bước 2: Tải dữ liệu hình ảnh lên thông qua URL resumable trả về từ bước 1
         let imageBuffer;
         if (image instanceof Buffer) {
             imageBuffer = image;
@@ -97,9 +99,12 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
         });
 
         if (!uploadResponse.ok) {
-            throw new Error(`Failed to upload image: ${uploadResponse.statusText}`);
+            throw new Error(
+                `Failed to upload image: ${uploadResponse.statusText}`
+            );
         }
 
+        // Lấy URL tải về hình ảnh từ Firebase Storage
         const getUrl = `https://firebasestorage.googleapis.com/v0/b/locket-img/o/users%2F${userId}%2Fmoments%2Fthumbnails%2F${imageName}`;
         const getHeaders = {
             "content-type": "application/json; charset=UTF-8",
@@ -112,7 +117,9 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
         });
 
         if (!getResponse.ok) {
-            throw new Error(`Failed to get download token: ${getResponse.statusText}`);
+            throw new Error(
+                `Failed to get download token: ${getResponse.statusText}`
+            );
         }
 
         const downloadToken = (await getResponse.json()).downloadTokens;
@@ -123,21 +130,19 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
         logError("uploadImageToFirebaseStorage", error.message);
         throw error;
     } finally {
+        // Xoá file ảnh tạm
         if (image.path) {
             fs.unlinkSync(image.path);
         }
     }
 };
 
-const postImage = async (userId, idToken, image, caption, topBgColor, bottomBgColor, textColor) => {
+const postImage = async (userId, idToken, image, caption, captionColorTop, captionColorBottom) => {
     try {
         logInfo("postImage", "Start");
-        const imageUrl = await uploadImageToFirebaseStorage(
-            userId,
-            idToken,
-            image
-        );
+        const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
 
+        // Tạo bài viết mới với các tùy chọn màu sắc cho caption
         const postHeaders = {
             "Content-Type": "application/json",
             Authorization: `Bearer ${idToken}`,
@@ -147,27 +152,9 @@ const postImage = async (userId, idToken, image, caption, topBgColor, bottomBgCo
             data: {
                 thumbnail_url: imageUrl,
                 caption: caption,
+                caption_color_top: captionColorTop || "#FFFFFF", // Mặc định màu trắng nếu không có giá trị
+                caption_color_bottom: captionColorBottom || "#FFFFFF", // Mặc định màu trắng nếu không có giá trị
                 sent_to_all: true,
-                overlays: [
-                    {
-                        data: {
-                            text: caption,
-                            text_color: textColor,
-                            type: "standard",
-                            max_lines: {
-                                "@type": "type.googleapis.com/google.protobuf.Int64Value",
-                                value: "4",
-                            },
-                            background: {
-                                material_blur: "ultra_thin",
-                                colors: [topBgColor, bottomBgColor],
-                            },
-                        },
-                        alt_text: caption,
-                        overlay_id: "caption:standard",
-                        overlay_type: "caption",
-                    },
-                ],
             },
         });
 
@@ -191,25 +178,14 @@ const postImage = async (userId, idToken, image, caption, topBgColor, bottomBgCo
 //#endregion
 
 //#region Video handlers
-
 const getMd5Hash = (str) => {
     return crypto.createHash("md5").update(str).digest("hex");
 };
 
 const uploadThumbnailFromVideo = async (userId, idToken, video) => {
     try {
-        const thumbnailBytes = await videoService.thumbnailData(
-            video.path,
-            "jpeg",
-            128,
-            75
-        );
-
-        return await uploadImageToFirebaseStorage(
-            userId,
-            idToken,
-            thumbnailBytes
-        );
+        const thumbnailBytes = await videoService.thumbnailData(video.path, "jpeg", 128, 75);
+        return await uploadImageToFirebaseStorage(userId, idToken, thumbnailBytes);
     } catch (error) {
         logError("uploadThumbnailFromVideo", error.message);
         return null;
@@ -221,8 +197,9 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
         const videoName = `${Date.now()}_vtd182.mp4`;
         const videoSize = video.length;
 
+        // Giai đoạn 1: Khởi tạo quá trình upload
         const url = `https://firebasestorage.googleapis.com/v0/b/locket-video/o/users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}?uploadType=resumable&name=users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}`;
-        const headers = {
+        const initHeaders = {
             "content-type": "application/json; charset=UTF-8",
             authorization: `Bearer ${idToken}`,
             "x-goog-upload-protocol": "resumable",
@@ -231,8 +208,7 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
             "x-goog-upload-content-length": `${videoSize}`,
             "accept-language": "vi-VN,vi;q=0.9",
             "x-firebase-storage-version": "ios/10.13.0",
-            "user-agent":
-                "com.locket.Locket/1.43.1 iPhone/17.3 hw/iPhone15_3 (GTMSUF/1)",
+            "user-agent": "com.locket.Locket/1.43.1 iPhone/17.3 hw/iPhone15_3 (GTMSUF/1)",
             "x-goog-upload-content-type": "video/mp4",
             "x-firebase-gmpid": "1:641029076083:ios:cc8eb46290d69b234fa609",
         };
@@ -245,46 +221,65 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
 
         const response = await fetch(url, {
             method: "POST",
-            headers: headers,
+            headers: initHeaders,
             body: data,
         });
 
         if (!response.ok) {
-            throw new Error(`Failed to start video upload: ${response.statusText}`);
+            throw new Error(`Failed to start upload: ${response.statusText}`);
         }
 
         const uploadUrl = response.headers.get("X-Goog-Upload-URL");
-        let uploadResponse = await fetch(uploadUrl, {
+
+        // Giai đoạn 2: Tải video lên
+        const videoBuffer = fs.readFileSync(video.path);
+        const uploadResponse = await fetch(uploadUrl, {
             method: "PUT",
-            headers: {
-                "content-type": "video/mp4",
-                "content-length": videoSize,
-            },
-            body: fs.createReadStream(video.path),
+            headers: constants.UPLOADER_HEADERS,
+            body: videoBuffer,
         });
 
         if (!uploadResponse.ok) {
             throw new Error(`Failed to upload video: ${uploadResponse.statusText}`);
         }
 
-        logInfo("uploadVideoToFirebaseStorage", "End");
+        // Lấy URL tải về video từ Firebase Storage
+        const getUrl = `https://firebasestorage.googleapis.com/v0/b/locket-video/o/users%2F${userId}%2Fmoments%2Fvideos%2F${videoName}`;
+        const getHeaders = {
+            "content-type": "application/json; charset=UTF-8",
+            authorization: `Bearer ${idToken}`,
+        };
+
+        const getResponse = await fetch(getUrl, {
+            method: "GET",
+            headers: getHeaders,
+        });
+
+        if (!getResponse.ok) {
+            throw new Error(`Failed to get download token: ${getResponse.statusText}`);
+        }
+
+        const downloadToken = (await getResponse.json()).downloadTokens;
+
+        return `${getUrl}?alt=media&token=${downloadToken}`;
     } catch (error) {
         logError("uploadVideoToFirebaseStorage", error.message);
         throw error;
     } finally {
+        // Xóa video tạm
         if (video.path) {
             fs.unlinkSync(video.path);
         }
     }
 };
 
-const postVideo = async (userId, idToken, video, caption) => {
+const postVideo = async (userId, idToken, video, caption, captionColorTop, captionColorBottom) => {
     try {
         logInfo("postVideo", "Start");
-
+        const videoUrl = await uploadVideoToFirebaseStorage(userId, idToken, video);
         const thumbnailUrl = await uploadThumbnailFromVideo(userId, idToken, video);
-        await uploadVideoToFirebaseStorage(userId, idToken, video);
 
+        // Tạo bài viết mới với các tùy chọn màu sắc cho caption
         const postHeaders = {
             "Content-Type": "application/json",
             Authorization: `Bearer ${idToken}`,
@@ -292,9 +287,11 @@ const postVideo = async (userId, idToken, video, caption) => {
 
         const postData = JSON.stringify({
             data: {
-                video_url: videoName,
+                video_url: videoUrl,
                 thumbnail_url: thumbnailUrl,
                 caption: caption,
+                caption_color_top: captionColorTop || "#FFFFFF", // Mặc định màu trắng nếu không có giá trị
+                caption_color_bottom: captionColorBottom || "#FFFFFF", // Mặc định màu trắng nếu không có giá trị
                 sent_to_all: true,
             },
         });
