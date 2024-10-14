@@ -43,7 +43,10 @@ const thumbnailData = async (
                         // Xoá file tạm sau khi đọc xong
                         unlinkFile(tempFilePath);
 
-                        logInfo("thumbnailData", "Thumbnail created successfully");
+                        logInfo(
+                            "thumbnailData",
+                            "Thumbnail created successfully"
+                        );
                         resolve(data);
                     });
                 })
