@@ -49,12 +49,15 @@ class LocketController {
                     userId,
                     idToken,
                     videos[0],
-                    caption
+                    caption,
+                    topBgColor,
+                    bottomBgColor,
+                    textColor
                 );
             }
 
             return res.status(200).json({
-                message: "Upload media successfully",
+                message: "Upload image successfully",
             });
         } catch (error) {
             next(error);
