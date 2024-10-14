@@ -13,38 +13,30 @@ class LocketController {
 
     async uploadMedia(req, res, next) {
         try {
-            const { userId, idToken, caption, topBgColor, bottomBgColor, textColor } = req.body;
+            const { userId, idToken, caption } = req.body;
             const { images, videos } = req.files;
 
-            // Kiểm tra xem có media nào không
             if (!images && !videos) {
                 return res.status(400).json({
                     message: "No media found",
                 });
             }
 
-            // Kiểm tra loại media
             if (images && videos) {
                 return res.status(400).json({
                     message: "Only one type of media is allowed",
                 });
             }
 
-            // Upload hình ảnh
             if (images) {
                 await locketService.postImage(
                     userId,
                     idToken,
                     images[0],
-                    caption,
-                    topBgColor,
-                    bottomBgColor,
-                    textColor
+                    caption
                 );
-            } 
-            // Upload video
-            else {
-                if (videos[0].size > 10 * 1024 * 1024) { // Kiểm tra kích thước video
+            } else {
+                if (videos[0].size > 10 * 1024 * 1024) {
                     return res.status(400).json({
                         message: "Video size exceeds 10MB",
                     });
@@ -54,15 +46,12 @@ class LocketController {
                     userId,
                     idToken,
                     videos[0],
-                    caption,
-                    topBgColor,
-                    bottomBgColor,
-                    textColor
+                    caption
                 );
             }
 
             return res.status(200).json({
-                message: "Upload media successfully",
+                message: "Upload image successfully",
             });
         } catch (error) {
             next(error);
