@@ -145,13 +145,14 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
     }
 };
 
-const postImage = async (userId, idToken, image, caption, topColor, bottomColor, textColor) => {
+const postImage = async (userId, idToken, image, caption) => {
     try {
         logInfo("postImage", "Start");
-        const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
-
-        const colors = topColor && bottomColor ? [topColor, bottomColor] : [];
-        const defaultTextColor = textColor || "#FFFFFFE6"; // Màu chữ mặc định là trắng nếu không có textColor
+        const imageUrl = await uploadImageToFirebaseStorage(
+            userId,
+            idToken,
+            image
+        );
 
         // Tạo bài viết mới
         const postHeaders = {
@@ -162,30 +163,12 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         const postData = JSON.stringify({
             data: {
                 thumbnail_url: imageUrl,
-                caption: caption || "", // Nếu không có caption thì truyền chuỗi rỗng
+                caption: {
+                    text: caption,
+                    text_color: "rgb(128, 0, 128)", // Màu chữ tím
+                    background_color: "rgb(0, 128, 0)", // Màu nền xanh lá
+                },
                 sent_to_all: true,
-                overlays: caption
-                    ? [
-                          {
-                              data: {
-                                  text: caption, // Hiển thị caption nếu có
-                                  text_color: defaultTextColor, // Màu chữ mặc định là trắng nếu không có textColor
-                                  type: "standard",
-                                  max_lines: {
-                                      "@type": "type.googleapis.com/google.protobuf.Int64Value",
-                                      value: "4",
-                                  },
-                                  background: {
-                                      material_blur: "ultra_thin",
-                                      colors: colors, // Sử dụng mảng rỗng nếu không có topColor hoặc bottomColor
-                                  },
-                              },
-                              alt_text: caption,
-                              overlay_id: "caption:standard",
-                              overlay_type: "caption",
-                          },
-                      ]
-                    : [], // Nếu không có caption, không gửi overlays
             },
         });
 
@@ -196,7 +179,9 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         });
 
         if (!postResponse.ok) {
-            throw new Error(`Failed to create post: ${postResponse.statusText}`);
+            throw new Error(
+                `Failed to create post: ${postResponse.statusText}`
+            );
         }
 
         logInfo("postImage", "End");
@@ -205,6 +190,7 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         throw error;
     }
 };
+
 //#endregion
 
 //#region Video handlers
