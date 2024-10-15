@@ -150,6 +150,9 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         logInfo("postImage", "Start");
         const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
 
+        const colors = topColor && bottomColor ? [topColor, bottomColor] : [];
+        const defaultTextColor = textColor || "#FFFFFF"; // Màu chữ mặc định là trắng nếu không có textColor
+
         // Tạo bài viết mới
         const postHeaders = {
             "Content-Type": "application/json",
@@ -159,28 +162,30 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         const postData = JSON.stringify({
             data: {
                 thumbnail_url: imageUrl,
-                caption: caption,
+                caption: caption || "", // Nếu không có caption thì truyền chuỗi rỗng
                 sent_to_all: true,
-                overlays: [
-                    {
-                        data: {
-                            text: caption,
-                            text_color: textColor, // Sử dụng textColor
-                            type: "standard",
-                            max_lines: {
-                                "@type": "type.googleapis.com/google.protobuf.Int64Value",
-                                value: "4",
-                            },
-                            background: {
-                                material_blur: "ultra_thin",
-                                colors: [topColor, bottomColor], // Sử dụng topColor và bottomColor
-                            },
-                        },
-                        alt_text: caption,
-                        overlay_id: "caption:standard",
-                        overlay_type: "caption",
-                    },
-                ],
+                overlays: caption
+                    ? [
+                          {
+                              data: {
+                                  text: caption, // Hiển thị caption nếu có
+                                  text_color: defaultTextColor, // Màu chữ mặc định là trắng nếu không có textColor
+                                  type: "standard",
+                                  max_lines: {
+                                      "@type": "type.googleapis.com/google.protobuf.Int64Value",
+                                      value: "4",
+                                  },
+                                  background: {
+                                      material_blur: "ultra_thin",
+                                      colors: colors, // Sử dụng mảng rỗng nếu không có topColor hoặc bottomColor
+                                  },
+                              },
+                              alt_text: caption,
+                              overlay_id: "caption:standard",
+                              overlay_type: "caption",
+                          },
+                      ]
+                    : [], // Nếu không có caption, không gửi overlays
             },
         });
 
@@ -200,7 +205,6 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         throw error;
     }
 };
-
 //#endregion
 
 //#region Video handlers
@@ -310,6 +314,9 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
 
 const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor) => {
     try {
+        const colors = topColor && bottomColor ? [topColor, bottomColor] : [];
+        const defaultTextColor = textColor || "#FFFFFF"; // Màu chữ mặc định là trắng
+
         const postHeaders = {
             "content-type": "application/json",
             authorization: `Bearer ${idToken}`,
@@ -377,27 +384,29 @@ const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topCo
                     platform: "ios",
                 },
                 sent_to_all: true,
-                caption: caption,
-                overlays: [
-                    {
-                        data: {
-                            text: caption,
-                            text_color: textColor, // Sử dụng textColor
-                            type: "standard",
-                            max_lines: {
-                                "@type": "type.googleapis.com/google.protobuf.Int64Value",
-                                value: "4",
-                            },
-                            background: {
-                                material_blur: "ultra_thin",
-                                colors: [topColor, bottomColor], // Sử dụng topColor và bottomColor
-                            },
-                        },
-                        alt_text: caption,
-                        overlay_id: "caption:standard",
-                        overlay_type: "caption",
-                    },
-                ],
+                caption: caption || "", // Nếu không có caption thì truyền chuỗi rỗng
+                overlays: caption
+                    ? [
+                          {
+                              data: {
+                                  text: caption, // Hiển thị caption nếu có
+                                  text_color: defaultTextColor, // Màu chữ mặc định là trắng nếu không có textColor
+                                  type: "standard",
+                                  max_lines: {
+                                      "@type": "type.googleapis.com/google.protobuf.Int64Value",
+                                      value: "4",
+                                  },
+                                  background: {
+                                      material_blur: "ultra_thin",
+                                      colors: colors, // Sử dụng mảng rỗng nếu không có topColor hoặc bottomColor
+                                  },
+                              },
+                              alt_text: caption,
+                              overlay_id: "caption:standard",
+                              overlay_type: "caption",
+                          },
+                      ]
+                    : [], // Nếu không có caption, không gửi overlays
             },
         };
 
