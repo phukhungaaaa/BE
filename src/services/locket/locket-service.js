@@ -151,7 +151,7 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
 
         const colors = topColor && bottomColor ? [topColor, bottomColor] : [];
-        const defaultTextColor = textColor || "rgb(255, 192, 203)"; // Màu chữ mặc định là trắng nếu không có textColor
+        const defaultTextColor = textColor || "#FFFFFFE6"; // Màu chữ mặc định là trắng nếu không có textColor
 
         // Tạo bài viết mới
         const postHeaders = {
