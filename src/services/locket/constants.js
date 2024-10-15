@@ -29,7 +29,7 @@ const constants = {
         "user-agent":
             "com.locket.Locket/1.43.1 iPhone/17.3 hw/iPhone15_3 (GTMSUF/1)",
     },
-    CREATE_POST_URL: "https://api.locketcamera.com/postMomentV2",
+    CREATE_POST_URL: "https://api.locketcamera.com/postMoment",
 };
 
 module.exports = constants;
