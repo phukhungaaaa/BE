@@ -151,7 +151,7 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
 
         const colors = topColor && bottomColor ? [topColor, bottomColor] : [];
-        const defaultTextColor = textColor || "#FFFFFF"; // Màu chữ mặc định là trắng nếu không có textColor
+        const defaultTextColor = textColor || "#FFFFFFE6"; // Màu chữ mặc định là trắng nếu không có textColor
 
         // Tạo bài viết mới
         const postHeaders = {
@@ -315,7 +315,7 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
 const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor) => {
     try {
         const colors = topColor && bottomColor ? [topColor, bottomColor] : [];
-        const defaultTextColor = textColor || "#FFFFFF"; // Màu chữ mặc định là trắng
+        const defaultTextColor = textColor || "#FFFFFFE6"; // Màu chữ mặc định là trắng
 
         const postHeaders = {
             "content-type": "application/json",
