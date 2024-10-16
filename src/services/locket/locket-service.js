@@ -150,9 +150,8 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         logInfo("postImage", "Start");
         const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
 
-        // Thêm E6 vào cuối mã màu nếu có
-        const colors = (topColor && bottomColor) ? [topColor + 'E6', bottomColor + 'E6'] : [];
-        const defaultTextColor = (textColor ? textColor + 'E6' : "#FFFFFFE6"); // Màu chữ mặc định là trắng nếu không có textColor
+        const colors = topColor && bottomColor ? [topColor, bottomColor] : [];
+        const defaultTextColor = textColor || "#FFFFFFE6"; // Màu chữ mặc định là trắng nếu không có textColor
 
         // Tạo bài viết mới
         const postHeaders = {
@@ -170,15 +169,12 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
                           {
                               data: {
                                   text: caption, // Hiển thị caption nếu có
-                                  text_color: defaultTextColor, 
+                                  text_color: defaultTextColor, // Màu chữ mặc định là trắng nếu không có textColor
                                   type: "static_text",
-                                  max_lines: {
-                                      "@type": "type.googleapis.com/google.protobuf.Int64Value",
-                                      value: "4",
-                                  },
+                                  max_lines: 1,
                                   background: {
                                       material_blur: "ultra_thin",
-                                      colors: colors, // Sử dụng mảng với các mã màu đã được thêm E6
+                                      colors: colors, // Sử dụng mảng rỗng nếu không có topColor hoặc bottomColor
                                   },
                               },
                               alt_text: caption,
