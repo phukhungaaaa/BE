@@ -169,7 +169,7 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
                           {
                               data: {
                                   text: caption, // Hiển thị caption nếu có
-                                  text_color: defaultTextColor, // Màu chữ mặc định là trắng nếu không có textColor
+                                  text_color: "#FF00FF", // Màu chữ mặc định là trắng nếu không có textColor
                                   type: "static_content",
                                   max_lines: {
                                       "@type": "type.googleapis.com/google.protobuf.Int64Value",
@@ -177,7 +177,7 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
                                   },
                                   background: {
                                       material_blur: "ultra_thin",
-                                      colors: colors, // Sử dụng mảng rỗng nếu không có topColor hoặc bottomColor
+                                      colors: "#FF0000", // Sử dụng mảng rỗng nếu không có topColor hoặc bottomColor
                                   },
                               },
                               alt_text: caption,
