@@ -170,7 +170,7 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
                               data: {
                                   text: caption, // Hiển thị caption nếu có
                                   text_color: defaultTextColor, // Màu chữ mặc định là trắng nếu không có textColor
-                                  type: "static_text",
+                                  type: "standard",
                                   max_lines: {
                                       "@type": "type.googleapis.com/google.protobuf.Int64Value",
                                       value: "4",
@@ -181,7 +181,7 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
                                   },
                               },
                               alt_text: caption,
-                              overlay_id: "caption: static_text",
+                              overlay_id: "caption:standard",
                               overlay_type: "caption",
                           },
                       ]
