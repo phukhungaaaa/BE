@@ -2,7 +2,6 @@ const constants = require("./constants");
 const fs = require("fs");
 const { logInfo, logError } = require("../logger.service.js");
 const crypto = require("crypto");
-const { createCanvas } = require('canvas');
 
 const videoService = require("./video-service.js");
 const { decryptLoginData } = require("./security-service.js");
@@ -44,19 +43,20 @@ const login = async (email, password) => {
 
 //#region Image handlers
 
-const createImageFromColor = (color) => {
-    const canvas = createCanvas(100, 100); // Tạo ảnh có kích thước 100x100
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    return canvas.toBuffer(); // Trả về buffer của hình ảnh
-};
-
+/**
+ * Uploads an image to Firebase Storage.
+ *
+ * @param {string} userId
+ * @param {string} idToken
+ * @param {File|Buffer} image - The image to be uploaded. Can be a `File` object or a `Buffer`.
+ * @returns
+ */
 const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
     try {
         logInfo("uploadImageToFirebaseStorage", "Start");
         const imageName = `${Date.now()}_vtd182.webp`;
 
+        // Bước 1: Khởi tạo quá trình upload
         const url = `https://firebasestorage.googleapis.com/v0/b/locket-img/o/users%2F${userId}%2Fmoments%2Fthumbnails%2F${imageName}?uploadType=resumable&name=users%2F${userId}%2Fmoments%2Fthumbnails%2F${imageName}`;
         const initHeaders = {
             "content-type": "application/json; charset=UTF-8",
@@ -67,7 +67,8 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
             "x-goog-upload-content-length": `${image.size || image.length}`,
             "accept-language": "vi-VN,vi;q=0.9",
             "x-firebase-storage-version": "ios/10.13.0",
-            "user-agent": "com.locket.Locket/1.43.1 iPhone/17.3 hw/iPhone15_3 (GTMSUF/1)",
+            "user-agent":
+                "com.locket.Locket/1.43.1 iPhone/17.3 hw/iPhone15_3 (GTMSUF/1)",
             "x-goog-upload-content-type": "image/webp",
             "x-firebase-gmpid": "1:641029076083:ios:cc8eb46290d69b234fa609",
         };
@@ -91,6 +92,7 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
 
         const uploadUrl = response.headers.get("X-Goog-Upload-URL");
 
+        // Bước 2: Tải dữ liệu hình ảnh lên thông qua URL resumable trả về từ bước 1
         let imageBuffer;
         if (image instanceof Buffer) {
             imageBuffer = image;
@@ -110,6 +112,7 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
             );
         }
 
+        // Lấy URL tải về hình ảnh từ Firebase Storage
         const getUrl = `https://firebasestorage.googleapis.com/v0/b/locket-img/o/users%2F${userId}%2Fmoments%2Fthumbnails%2F${imageName}`;
         const getHeaders = {
             "content-type": "application/json; charset=UTF-8",
@@ -135,6 +138,7 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
         logError("uploadImageToFirebaseStorage", error.message);
         throw error;
     } finally {
+        // Xoá file ảnh tạm
         if (image.path) {
             fs.unlinkSync(image.path);
         }
@@ -146,14 +150,8 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         logInfo("postImage", "Start");
         const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
 
-        // Tạo ảnh nền từ topColor và bottomColor
-        let backgroundImageUrl = null;
-        if (topColor && bottomColor) {
-            const backgroundImageBuffer = createImageFromColor(topColor); // Tạo ảnh nền từ topColor (có thể mở rộng để xử lý cả bottomColor)
-            backgroundImageUrl = await uploadImageToFirebaseStorage(userId, idToken, backgroundImageBuffer);
-        }
-
-        const defaultTextColor = textColor || "#FFFFFFE6"; // Màu chữ mặc định là trắng
+        const colors = topColor && bottomColor ? [topColor, bottomColor] : [];
+        const defaultTextColor = textColor || "#FFFFFFE6"; // Màu chữ mặc định là trắng nếu không có textColor
 
         // Tạo bài viết mới
         const postHeaders = {
@@ -170,19 +168,17 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
                     ? [
                           {
                               data: {
-                                  text: caption,
-                                  text_color: defaultTextColor, 
+                                  text: caption, // Hiển thị caption nếu có
+                                  text_color: defaultTextColor, // Màu chữ mặc định là trắng nếu không có textColor
                                   type: "standard",
                                   max_lines: {
                                       "@type": "type.googleapis.com/google.protobuf.Int64Value",
                                       value: "4",
                                   },
-                                  background: backgroundImageUrl
-                                      ? {
-                                            material_blur: "ultra_thin",
-                                            image_url: backgroundImageUrl, // URL của ảnh nền
-                                        }
-                                      : { material_blur: "ultra_thin" }, // Không có ảnh nền thì dùng blur
+                                  background: {
+                                      material_blur: "ultra_thin",
+                                      colors: colors, // Sử dụng mảng rỗng nếu không có topColor hoặc bottomColor
+                                  },
                               },
                               alt_text: caption,
                               overlay_id: "caption:standard",
@@ -209,7 +205,6 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         throw error;
     }
 };
-
 //#endregion
 
 //#region Video handlers
@@ -468,5 +463,4 @@ module.exports = {
     uploadVideoToFirebaseStorage,
     postVideo,
 };
-
-        
+            
