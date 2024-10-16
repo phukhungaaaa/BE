@@ -171,7 +171,7 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
                                   text: caption, // Hiển thị caption nếu có
                                   text_color: defaultTextColor, // Màu chữ mặc định là trắng nếu không có textColor
                                   type: "static_text",
-                                  max_lines: 10,
+                                  max_lines: 1,
                                   background: {
                                       material_blur: "ultra_thin",
                                       colors: colors, // Sử dụng mảng rỗng nếu không có topColor hoặc bottomColor
