@@ -68,7 +68,7 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
             "accept-language": "vi-VN,vi;q=0.9",
             "x-firebase-storage-version": "ios/10.13.0",
             "user-agent":
-                "com.locket.Locket/1.43.1 iPhone/17.3 hw/iPhone15_3 (GTMSUF/1)",
+                "com.locket.Locket/1.94.0 iPhone/17.3 hw/iPhone15_3 (GTMSUF/1)",
             "x-goog-upload-content-type": "image/webp",
             "x-firebase-gmpid": "1:641029076083:ios:cc8eb46290d69b234fa609",
         };
