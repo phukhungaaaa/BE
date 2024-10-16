@@ -151,27 +151,31 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
 
         const colors = topColor && bottomColor ? [topColor, bottomColor] : [];
-        const defaultTextColor = textColor || "#FFFFFFE6"; // Màu chữ mặc định là trắng nếu không có textColor
+
+        // Đảm bảo textColor luôn có thêm E6 vào cuối nếu chưa có
+        const formattedTextColor = textColor && !textColor.endsWith('E6') 
+            ? `${textColor}E6` 
+            : textColor || "#FFFFFFE6";
 
         // Tạo bài viết mới
         const postHeaders = {
             "Content-Type": "application/json",
             Authorization: `Bearer ${idToken}`,
         };
-        
+
         let payload = {
             data: {
                 thumbnail_url: imageUrl,
                 sent_to_all: true
             },
         }
-        
-        if(textColor && colors.length) {
+
+        if(formattedTextColor && colors.length) {
             let overlays = [
                 {
                   data: {
                       text: caption,
-                      text_color: defaultTextColor,
+                      text_color: formattedTextColor,
                       type: "static_content",
                       "max_lines": 10,
                       background: {
