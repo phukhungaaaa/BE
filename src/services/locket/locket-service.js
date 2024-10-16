@@ -170,9 +170,13 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
                               data: {
                                   text: caption, // Hiển thị caption nếu có
                                   text_color: defaultTextColor, // Màu chữ mặc định là trắng nếu không có textColor
-                                  type: "static_content", // Đổi type thành static_content
-                                  max_lines: 1, // Sử dụng định dạng đơn giản thay vì protobuf
+                                  type: "standard",
+                                  max_lines: {
+                                      "@type": "type.googleapis.com/google.protobuf.Int64Value",
+                                      value: "4",
+                                  },
                                   background: {
+                                      material_blur: "ultra_thin",
                                       colors: colors, // Sử dụng mảng rỗng nếu không có topColor hoặc bottomColor
                                   },
                               },
