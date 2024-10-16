@@ -27,7 +27,7 @@ const constants = {
         "upload-incomplete": "?0",
         "upload-draft-interop-version": "3",
         "user-agent":
-            "com.locket.Locket/1.43.1 iPhone/17.3 hw/iPhone15_3 (GTMSUF/1)",
+            "com.locket.Locket/1.94.0 iPhone/17.3 hw/iPhone15_3 (GTMSUF/1)",
     },
     CREATE_POST_URL: "https://api.locketcamera.com/postMomentV2",
 };
