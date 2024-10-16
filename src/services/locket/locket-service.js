@@ -162,7 +162,6 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         const postData = JSON.stringify({
             data: {
                 thumbnail_url: imageUrl,
-                caption: caption || "", // Nếu không có caption thì truyền chuỗi rỗng
                 sent_to_all: true,
                 overlays: caption
                     ? [
