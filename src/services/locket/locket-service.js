@@ -320,14 +320,18 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
 const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor) => {
     try {
         const colors = topColor && bottomColor ? [topColor, bottomColor] : [];
-        const defaultTextColor = textColor || "#FFFFFFE6"; // Màu chữ mặc định là trắng
+
+        // Đảm bảo textColor luôn có thêm E6 vào cuối nếu chưa có
+        const formattedTextColor = textColor && !textColor.endsWith('E6') 
+            ? `${textColor}E6` 
+            : textColor || "#FFFFFFE6"; // Mặc định là màu trắng với độ trong suốt
 
         const postHeaders = {
             "content-type": "application/json",
             authorization: `Bearer ${idToken}`,
         };
 
-        const data = {
+        let payload = {
             data: {
                 thumbnail_url: thumbnailUrl,
                 video_url: videoUrl,
@@ -389,36 +393,40 @@ const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topCo
                     platform: "ios",
                 },
                 sent_to_all: true,
-                caption: caption || "", // Nếu không có caption thì truyền chuỗi rỗng
-                overlays: caption
-                    ? [
-                          {
-                              data: {
-                                  text: caption, // Hiển thị caption nếu có
-                                  text_color: defaultTextColor, // Màu chữ mặc định là trắng nếu không có textColor
-                                  type: "standard",
-                                  max_lines: {
-                                      "@type": "type.googleapis.com/google.protobuf.Int64Value",
-                                      value: "4",
-                                  },
-                                  background: {
-                                      material_blur: "ultra_thin",
-                                      colors: colors, // Sử dụng mảng rỗng nếu không có topColor hoặc bottomColor
-                                  },
-                              },
-                              alt_text: caption,
-                              overlay_id: "caption:standard",
-                              overlay_type: "caption",
-                          },
-                      ]
-                    : [], // Nếu không có caption, không gửi overlays
             },
         };
+
+        // Nếu có caption, tạo overlays với màu sắc và caption
+        if (caption && colors.length) {
+            let overlays = [
+                {
+                    data: {
+                        text: caption, // Caption hiển thị
+                        text_color: formattedTextColor, // Màu chữ đã được xử lý
+                        type: "standard",
+                        max_lines: {
+                            "@type": "type.googleapis.com/google.protobuf.Int64Value",
+                            value: "4",
+                        },
+                        background: {
+                            material_blur: "ultra_thin",
+                            colors: colors, // Màu nền với topColor và bottomColor
+                        },
+                    },
+                    alt_text: caption,
+                    overlay_id: "caption:standard",
+                    overlay_type: "caption",
+                },
+            ];
+            payload.data.overlays = overlays;
+        } else {
+            payload.data.caption = caption || ""; // Nếu không có caption, truyền chuỗi rỗng
+        }
 
         const response = await fetch(constants.CREATE_POST_URL, {
             method: "POST",
             headers: postHeaders,
-            body: JSON.stringify(data),
+            body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
@@ -429,6 +437,33 @@ const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topCo
     } catch (error) {
         logError("postVideoToLocket", error.message);
         throw error;
+    }
+};
+
+const postVideo = async (userId, idToken, video, caption, topColor, bottomColor, textColor) => {
+    try {
+        logInfo("postVideo", "Start");
+        const videoAsBuffer = fs.readFileSync(video.path);
+        const thumbnailUrl = await uploadThumbnailFromVideo(userId, idToken, video);
+
+        if (!thumbnailUrl) {
+            throw new Error("Failed to upload thumbnail");
+        }
+
+        const videoUrl = await uploadVideoToFirebaseStorage(userId, idToken, videoAsBuffer);
+
+        if (!videoUrl) {
+            throw new Error("Failed to upload video");
+        }
+
+        await postVideoToLocket(idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor);
+
+        logInfo("postVideo", "End");
+    } catch (error) {
+        logError("postVideo", error.message);
+        throw error;
+    } finally {
+        fs.unlinkSync(video.path);
     }
 };
 
