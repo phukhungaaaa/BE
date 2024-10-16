@@ -158,36 +158,37 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
             "Content-Type": "application/json",
             Authorization: `Bearer ${idToken}`,
         };
-
-        const postData = JSON.stringify({
+        
+        let payload = {
             data: {
                 thumbnail_url: imageUrl,
-                caption: caption || "", // Nếu không có caption thì truyền chuỗi rỗng
-                sent_to_all: true,
-                overlays: caption
-                    ? [
-                          {
-                              data: {
-                                  text: caption, // Hiển thị caption nếu có
-                                  text_color: defaultTextColor, // Màu chữ mặc định là trắng nếu không có textColor
-                                  type: "standard",
-                                  max_lines: {
-                                      "@type": "type.googleapis.com/google.protobuf.Int64Value",
-                                      value: "4",
-                                  },
-                                  background: {
-                                      material_blur: "ultra_thin",
-                                      colors: colors, // Sử dụng mảng rỗng nếu không có topColor hoặc bottomColor
-                                  },
-                              },
-                              alt_text: caption,
-                              overlay_id: "caption:standard",
-                              overlay_type: "caption",
-                          },
-                      ]
-                    : [], // Nếu không có caption, không gửi overlays
+                sent_to_all: true
             },
-        });
+        }
+        
+        if(textColor && colors.length) {
+            let overlays = [
+                {
+                  data: {
+                      text: caption,
+                      text_color: defaultTextColor,
+                      type: "static_content",
+                      "max_lines": 10,
+                      background: {
+                          colors: colors
+                      },
+                  },
+                  alt_text: caption,
+                  overlay_id: "caption:standard",
+                  overlay_type: "caption",
+                }
+            ];
+            payload.data.overlays = overlays;
+        } else {
+            payload.data.caption = caption;
+        }
+
+        const postData = JSON.stringify(payload);
 
         const postResponse = await fetch(constants.CREATE_POST_URL, {
             method: "POST",
