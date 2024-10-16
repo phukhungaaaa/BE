@@ -467,33 +467,6 @@ const postVideo = async (userId, idToken, video, caption, topColor, bottomColor,
     }
 };
 
-const postVideo = async (userId, idToken, video, caption, topColor, bottomColor, textColor) => {
-    try {
-        logInfo("postVideo", "Start");
-        const videoAsBuffer = fs.readFileSync(video.path);
-        const thumbnailUrl = await uploadThumbnailFromVideo(userId, idToken, video);
-
-        if (!thumbnailUrl) {
-            throw new Error("Failed to upload thumbnail");
-        }
-
-        const videoUrl = await uploadVideoToFirebaseStorage(userId, idToken, videoAsBuffer);
-
-        if (!videoUrl) {
-            throw new Error("Failed to upload video");
-        }
-
-        await postVideoToLocket(idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor);
-
-        logInfo("postVideo", "End");
-    } catch (error) {
-        logError("postVideo", error.message);
-        throw error;
-    } finally {
-        fs.unlinkSync(video.path);
-    }
-};
-
 //#endregion
 
 module.exports = {
