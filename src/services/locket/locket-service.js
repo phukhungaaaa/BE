@@ -145,12 +145,32 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
     }
 };
 
+const convertColorToImageUrl = async (color) => {
+    // Hàm này sẽ chuyển đổi mã màu hex thành một hình ảnh màu đơn sắc và trả về URL của hình ảnh đó.
+    // Thực hiện logic tạo hình ảnh màu đơn sắc và upload lên Firebase Storage tại đây.
+    // Ở đây bạn có thể dùng một dịch vụ khác hoặc phương thức khác để tạo hình ảnh mà không cần canvas.
+    // Ví dụ minh hoạ đơn giản (bạn cần hiện thực cụ thể theo yêu cầu của bạn):
+    return `https://dummyimage.com/600x400/${color.replace(
+        "#",
+        ""
+    )}/ffffff&text=%20`;
+};
+
 const postImage = async (userId, idToken, image, caption, topColor, bottomColor, textColor) => {
     try {
         logInfo("postImage", "Start");
         const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
 
-        const colors = topColor && bottomColor ? [topColor, bottomColor] : [];
+        const colors = [];
+        if (topColor) {
+            const topColorImageUrl = await convertColorToImageUrl(topColor);
+            colors.push(topColorImageUrl);
+        }
+        if (bottomColor) {
+            const bottomColorImageUrl = await convertColorToImageUrl(bottomColor);
+            colors.push(bottomColorImageUrl);
+        }
+
         const defaultTextColor = textColor || "#FFFFFFE6"; // Màu chữ mặc định là trắng nếu không có textColor
 
         // Tạo bài viết mới
@@ -177,7 +197,7 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
                                   },
                                   background: {
                                       material_blur: "ultra_thin",
-                                      colors: colors, // Sử dụng mảng rỗng nếu không có topColor hoặc bottomColor
+                                      colors: colors, // Sử dụng URL của hình ảnh nếu có màu nền
                                   },
                               },
                               alt_text: caption,
@@ -205,6 +225,7 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         throw error;
     }
 };
+
 //#endregion
 
 //#region Video handlers
