@@ -11,6 +11,7 @@
   "author": "Locket Uploader",
   "license": "ISC",
   "dependencies": {
+    "canvas": "^2.8.0", // Phiên bản canvas sẽ được cập nhật
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "crypto-js": "^4.2.0",
@@ -28,8 +29,7 @@
     "mime": "^4.0.3",
     "multer": "^1.4.5-lts.1",
     "node-request-context": "^1.0.5",
-    "request-promise": "^4.2.6",
-    "canvas": "^2.8.0"
+    "request-promise": "^4.2.6"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
