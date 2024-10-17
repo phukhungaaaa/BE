@@ -321,7 +321,7 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
 
 const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor) => {
     try {
-        const colors = topColor && bottomColor ? [topColor, bottomColor] : [];
+        const colors = caption && topColor && bottomColor ? [topColor, bottomColor] : [];
 
         // Đảm bảo textColor luôn có thêm E6 vào cuối nếu chưa có
         const formattedTextColor = textColor && !textColor.endsWith('E6') 
@@ -398,7 +398,7 @@ const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topCo
             },
         };
 
-        // Nếu có caption, tạo overlays với màu sắc và caption
+        // Nếu có caption và colors thì tạo overlays
         if (caption && colors.length) {
             let overlays = [
                 {
@@ -421,8 +421,8 @@ const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topCo
                 },
             ];
             payload.data.overlays = overlays;
-        } else {
-            payload.data.caption = caption || ""; // Nếu không có caption, truyền chuỗi rỗng
+        } else if (caption) {
+            payload.data.caption = caption; // Nếu không có màu nền, chỉ gửi caption
         }
 
         const response = await fetch(constants.CREATE_POST_URL, {
