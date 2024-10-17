@@ -170,25 +170,26 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
             },
         }
 
-        // Kiểm tra caption và colors
-        if (caption && formattedTextColor && colors.length) {
+        if(formattedTextColor && colors.length) {
             let overlays = [
                 {
-                    data: {
-                        text: caption,
-                        text_color: formattedTextColor,
-                        type: "static_content",
-                        "max_lines": 10,
-                        background: {
-                            colors: colors
-                        },
-                    },
-                    alt_text: caption,
-                    overlay_id: "caption:standard",
-                    overlay_type: "caption",
+                  data: {
+                      text: caption,
+                      text_color: formattedTextColor,
+                      type: "static_content",
+                      "max_lines": 10,
+                      background: {
+                          colors: colors
+                      },
+                  },
+                  alt_text: caption,
+                  overlay_id: "caption:standard",
+                  overlay_type: "caption",
                 }
             ];
             payload.data.overlays = overlays;
+        } else {
+            payload.data.caption = caption;
         }
 
         const postData = JSON.stringify(payload);
