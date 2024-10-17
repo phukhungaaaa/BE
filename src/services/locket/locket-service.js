@@ -150,7 +150,8 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         logInfo("postImage", "Start");
         const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
 
-        const colors = topColor && bottomColor ? [topColor, bottomColor] : [];
+        // Kiểm tra nếu có topColor và bottomColor thì mới tạo mảng colors
+        const colors = caption && topColor && bottomColor ? [topColor, bottomColor] : [];
 
         // Đảm bảo textColor luôn có thêm E6 vào cuối nếu chưa có
         const formattedTextColor = textColor && !textColor.endsWith('E6') 
@@ -170,14 +171,15 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
             },
         }
 
-        if(formattedTextColor && colors.length) {
+        // Chỉ thêm overlays nếu có caption và có colors
+        if (caption && colors.length) {
             let overlays = [
                 {
                   data: {
                       text: caption,
                       text_color: formattedTextColor,
                       type: "static_content",
-                      "max_lines": 10,
+                      max_lines: 10,
                       background: {
                           colors: colors
                       },
@@ -188,7 +190,7 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
                 }
             ];
             payload.data.overlays = overlays;
-        } else {
+        } else if (caption) {
             payload.data.caption = caption;
         }
 
