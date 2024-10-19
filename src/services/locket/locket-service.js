@@ -154,8 +154,8 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         let colors = [];
         if (caption && topColor && bottomColor) {
             colors = [topColor, bottomColor];
-        } else if (caption && textColor) {
-            // Nếu có màu chữ mà không có màu nền thì đặt màu nền mặc định là đen E6
+        } else if (caption && textColor && textColor !== "#FFFFFFE6") {
+            // Nếu có textColor khác mặc định và không có màu nền, đặt màu nền đen E6
             colors = ["#000000E6", "#000000E6"];
         }
 
@@ -177,27 +177,28 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
             },
         };
 
-        // Chỉ thêm overlays nếu có caption và có colors
-        if (caption && colors.length) {
-            let overlays = [
-                {
-                  data: {
-                      text: caption,
-                      text_color: formattedTextColor,
-                      type: "static_content",
-                      max_lines: 10,
-                      background: {
-                          colors: colors
-                      },
-                  },
-                  alt_text: caption,
-                  overlay_id: "caption:standard",
-                  overlay_type: "caption",
-                }
-            ];
-            payload.data.overlays = overlays;
-        } else if (caption) {
-            payload.data.caption = caption;
+        // Chỉ thêm overlays nếu có caption
+        if (caption) {
+            let overlay = {
+                data: {
+                    text: caption,
+                    text_color: formattedTextColor,
+                    type: "static_content",
+                    max_lines: 10,
+                },
+                alt_text: caption,
+                overlay_id: "caption:standard",
+                overlay_type: "caption",
+            };
+
+            // Chỉ thêm background nếu có colors
+            if (colors.length) {
+                overlay.data.background = {
+                    colors: colors
+                };
+            }
+
+            payload.data.overlays = [overlay];
         }
 
         const postData = JSON.stringify(payload);
