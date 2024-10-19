@@ -150,21 +150,18 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         logInfo("postImage", "Start");
         const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
 
+        // Kiểm tra nếu có topColor và bottomColor thì mới tạo mảng colors
+        const colors = topColor && bottomColor ? [topColor, bottomColor] : [];
+
         // Đảm bảo textColor luôn có thêm E6 vào cuối nếu chưa có
         const formattedTextColor = textColor && !textColor.endsWith('E6') 
             ? `${textColor}E6` 
-            : textColor || "#FFFFFFE6";
+            : textColor || "#FFFFFFE6"; // Mặc định là màu trắng với hậu tố E6
 
-        // Kiểm tra nếu có topColor và bottomColor thì mới tạo mảng colors
-        let colors = [];
-        if (caption) {
-            if (!topColor || !bottomColor) {
-                // Nếu thiếu màu nền thì mặc định là màu đen E6
-                colors = ["#000000E6", "#000000E6"];
-            } else {
-                colors = [topColor, bottomColor];
-            }
-        }
+        // Nếu có caption và có màu chữ mà không có background thì background mặc định là màu đen E6
+        const backgroundColors = caption && !colors.length && textColor && textColor !== "#FFFFFFE6" 
+            ? ["#000000E6", "#000000E6"] 
+            : colors;
 
         // Tạo bài viết mới
         const postHeaders = {
@@ -179,51 +176,27 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
             },
         }
 
-        // Logic gửi overlays hoặc caption dựa trên điều kiện
+        // Chỉ thêm overlays nếu có caption
         if (caption) {
-            // Nếu màu chữ không phải là màu mặc định và có background
-            if (formattedTextColor !== "#FFFFFFE6" && colors.length) {
+            if (backgroundColors.length || textColor !== "#FFFFFFE6") {
                 let overlays = [
                     {
-                        data: {
-                            text: caption,
-                            text_color: formattedTextColor,
-                            type: "static_content",
-                            max_lines: 10,
-                            background: {
-                                colors: colors
-                            },
-                        },
-                        alt_text: caption,
-                        overlay_id: "caption:standard",
-                        overlay_type: "caption",
+                      data: {
+                          text: caption,
+                          text_color: formattedTextColor,
+                          type: "static_content",
+                          max_lines: 10,
+                          background: backgroundColors.length ? { colors: backgroundColors } : undefined,
+                      },
+                      alt_text: caption,
+                      overlay_id: "caption:standard",
+                      overlay_type: "caption",
                     }
                 ];
                 payload.data.overlays = overlays;
-            }
-            // Nếu màu chữ là mặc định, chỉ gửi caption mà không có background
-            else if (formattedTextColor === "#FFFFFFE6") {
+            } else {
+                // Nếu không có background và màu chữ mặc định thì chỉ gửi caption
                 payload.data.caption = caption;
-            }
-            // Nếu có background mà màu chữ là mặc định, vẫn gửi cả hai
-            else if (colors.length) {
-                let overlays = [
-                    {
-                        data: {
-                            text: caption,
-                            text_color: formattedTextColor,
-                            type: "static_content",
-                            max_lines: 10,
-                            background: {
-                                colors: colors
-                            },
-                        },
-                        alt_text: caption,
-                        overlay_id: "caption:standard",
-                        overlay_type: "caption",
-                    }
-                ];
-                payload.data.overlays = overlays;
             }
         }
 
