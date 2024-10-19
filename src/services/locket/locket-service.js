@@ -151,7 +151,7 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
 
         // Kiểm tra nếu có topColor và bottomColor thì mới tạo mảng colors
-        const colors = caption && topColor && bottomColor ? [topColor, bottomColor] : [];
+        const colors = topColor && bottomColor ? [topColor, bottomColor] : [];
 
         // Đảm bảo textColor luôn có thêm E6 vào cuối nếu chưa có
         const formattedTextColor = textColor && !textColor.endsWith('E6') 
@@ -171,25 +171,27 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
             },
         }
 
-        // Chỉ thêm overlays nếu có caption và có colors
-        if (caption && colors.length) {
-            let overlays = [
-                {
-                  data: {
-                      text: caption,
-                      text_color: formattedTextColor,
-                      type: "static_content",
-                      max_lines: 10,
-                      background: {
-                          colors: colors
-                      },
-                  },
-                  alt_text: caption,
-                  overlay_id: "caption:standard",
-                  overlay_type: "caption",
-                }
-            ];
-            payload.data.overlays = overlays;
+        // Nếu có caption thì xử lý tiếp
+        if (caption) {
+            let overlays = {
+                data: {
+                    text: caption,
+                    text_color: formattedTextColor,
+                    type: "static_content",
+                    max_lines: 10,
+                },
+                alt_text: caption,
+                overlay_id: "caption:standard",
+                overlay_type: "caption",
+            };
+
+            // Nếu có màu nền thì thêm phần colors vào overlay
+            if (colors.length) {
+                overlays.data.background = { colors: colors };
+            }
+
+            // Thêm overlay vào payload
+            payload.data.overlays = [overlays];
         } else if (caption) {
             payload.data.caption = caption;
         }
@@ -212,6 +214,7 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         throw error;
     }
 };
+
 //#endregion
 
 //#region Video handlers
