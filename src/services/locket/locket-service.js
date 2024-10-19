@@ -151,7 +151,13 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
 
         // Kiểm tra nếu có topColor và bottomColor thì mới tạo mảng colors
-        const colors = topColor && bottomColor ? [topColor, bottomColor] : [];
+        let colors = [];
+        if (caption && topColor && bottomColor) {
+            colors = [topColor, bottomColor];
+        } else if (caption && textColor) {
+            // Nếu có màu chữ mà không có màu nền thì đặt màu nền mặc định là đen E6
+            colors = ["#000000E6", "#000000E6"];
+        }
 
         // Đảm bảo textColor luôn có thêm E6 vào cuối nếu chưa có
         const formattedTextColor = textColor && !textColor.endsWith('E6') 
@@ -169,29 +175,27 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
                 thumbnail_url: imageUrl,
                 sent_to_all: true
             },
-        }
+        };
 
-        // Nếu có caption thì xử lý tiếp
-        if (caption) {
-            let overlays = {
-                data: {
-                    text: caption,
-                    text_color: formattedTextColor,
-                    type: "static_content",
-                    max_lines: 10,
-                },
-                alt_text: caption,
-                overlay_id: "caption:standard",
-                overlay_type: "caption",
-            };
-
-            // Nếu có màu nền thì thêm phần colors vào overlay
-            if (colors.length) {
-                overlays.data.background = { colors: colors };
-            }
-
-            // Thêm overlay vào payload
-            payload.data.overlays = [overlays];
+        // Chỉ thêm overlays nếu có caption và có colors
+        if (caption && colors.length) {
+            let overlays = [
+                {
+                  data: {
+                      text: caption,
+                      text_color: formattedTextColor,
+                      type: "static_content",
+                      max_lines: 10,
+                      background: {
+                          colors: colors
+                      },
+                  },
+                  alt_text: caption,
+                  overlay_id: "caption:standard",
+                  overlay_type: "caption",
+                }
+            ];
+            payload.data.overlays = overlays;
         } else if (caption) {
             payload.data.caption = caption;
         }
