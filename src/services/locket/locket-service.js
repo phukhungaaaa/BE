@@ -191,7 +191,7 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
                 overlay_type: "caption",
             };
 
-            // Chỉ thêm background nếu có colors
+            // Chỉ thêm background nếu textColor khác mặc định và không có colors
             if (colors.length) {
                 overlay.data.background = {
                     colors: colors
