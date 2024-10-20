@@ -150,8 +150,12 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         logInfo("postImage", "Start");
         const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
 
-        // Kiểm tra nếu có topColor và bottomColor thì mới tạo mảng colors
-        const colors = topColor && bottomColor ? [topColor, bottomColor] : [];
+        // Kiểm tra và gán màu nếu thiếu
+        const topBackgroundColor = topColor || (bottomColor ? "#000000E6" : null);
+        const bottomBackgroundColor = bottomColor || (topColor ? "#000000E6" : null);
+
+        // Tạo mảng colors nếu có ít nhất 1 màu
+        const colors = topBackgroundColor && bottomBackgroundColor ? [topBackgroundColor, bottomBackgroundColor] : [];
 
         // Đảm bảo textColor luôn có thêm E6 vào cuối nếu chưa có
         const formattedTextColor = textColor && !textColor.endsWith('E6') 
