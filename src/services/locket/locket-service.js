@@ -332,8 +332,12 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
 
 const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor) => {
     try {
-        // Kiểm tra nếu có topColor và bottomColor thì tạo mảng colors
-        const colors = topColor && bottomColor ? [topColor, bottomColor] : [];
+        // Kiểm tra và gán màu nếu thiếu
+        const topBackgroundColor = topColor || (bottomColor ? "#000000E6" : null);
+        const bottomBackgroundColor = bottomColor || (topColor ? "#000000E6" : null);
+
+        // Tạo mảng colors nếu có ít nhất một màu
+        const colors = topBackgroundColor && bottomBackgroundColor ? [topBackgroundColor, bottomBackgroundColor] : [];
 
         // Đảm bảo textColor luôn có thêm E6 vào cuối nếu chưa có
         const formattedTextColor = textColor && !textColor.endsWith('E6') 
