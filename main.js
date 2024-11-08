@@ -40,4 +40,11 @@ const PORT = process.env.PORT;
 
 app.listen(PORT, () => {
     logInfo("main.js", `Server backend is running at localhost:${PORT}`);
+
+// Đoạn mã tự động ping sau mỗi 5 phút
+    setInterval(() => {
+        axios.get(`http://localhost:${PORT}`)
+            .then(() => logInfo("main.js", "Server pinged successfully"))
+            .catch((err) => logInfo("main.js", "Error pinging the server: " + err));
+    }, 300000); // 300000 ms = 5 phút
 });
