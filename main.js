@@ -2,7 +2,6 @@ const express = require("express");
 const cookieParser = require("cookie-parser");
 const dotenv = require("dotenv");
 const axios = require("axios");
-
 const envFile =
     process.env.NODE_ENV === "production"
         ? ".env.production"
@@ -22,6 +21,8 @@ app.use(
     cors({
         origin: ["http://localhost:10000", "https://locket.pw"],
         methods: ["GET", "POST"],
+
+        // Nhằm cho phép client gửi cookie lên server
         credentials: true,
     })
 );
@@ -29,11 +30,6 @@ app.use(
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Route ping để giữ server không bị ngủ
-app.get("/ping", (req, res) => {
-    res.status(200).send("pong");
-});
 
 // Nạp các route vào ứng dụng
 routes(app);
