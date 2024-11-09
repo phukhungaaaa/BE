@@ -1,6 +1,7 @@
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const dotenv = require("dotenv");
+const fetch = require("node-fetch");
 const envFile =
     process.env.NODE_ENV === "production"
         ? ".env.production"
