@@ -40,4 +40,11 @@ const PORT = process.env.PORT;
 
 app.listen(PORT, () => {
     logInfo("main.js", `Server backend is running at localhost:${PORT}`);
+
+// Ping server mỗi 5 phút để giữ cho nó không bị "ngủ"
+    setInterval(() => {
+        fetch(`http://localhost:${PORT}`)
+            .then(res => logInfo("main.js", `Ping result: ${res.status}`))
+            .catch(err => logInfo("main.js", `Ping error: ${err.message}`));
+    }, 5 * 60 * 1000); // 5 phút
 });
