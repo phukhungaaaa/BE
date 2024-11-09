@@ -51,7 +51,7 @@ app.listen(PORT, () => {
 setInterval(() => {
     axios.get(`http://localhost:${PORT}/locket/ping`)
         .then(() => {
-            logInfo("Ping", `Pinged server at localhost:${PORT}`);
+            logInfo("Ping", `Pinged server at localhost:${PORT}/locket/ping`);
         })
         .catch((error) => {
             console.error("Ping failed:", error.message);
