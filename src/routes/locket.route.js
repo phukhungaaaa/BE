@@ -1,43 +1,34 @@
 const Router = require("express");
 const router = Router();
 const locketController = require("../controllers/locket.controller.js");
-
 const validateEmail = (email) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(String(email).toLowerCase());
 };
-
-// Middleware để upload media
 const handleUpload = require("../middlewares/multipart-upload-support.middleware.js");
 const MAX_IMAGE_COUNT = 1;
 const MAX_VIDEO_COUNT = 1;
 
-// Route login
 router.post("/login", locketController.login);
 
-// Route upload media
 router.post(
     "/upload-media",
     handleUpload(MAX_IMAGE_COUNT, MAX_VIDEO_COUNT),
     locketController.uploadMedia
 );
 
-// Route ping
 router.get("/ping", (req, res) => {
     res.status(200).send("pong");
 });
 
-// Route forgot password
 router.post("/forgot-password", async (req, res) => {
     const { email } = req.body;
 
-    // Kiểm tra email hợp lệ
     if (!email || !validateEmail(email)) {
         return res.status(400).json({ message: "Vui lòng nhập email hợp lệ để đặt lại mật khẩu" });
     }
 
     try {
-        // Gửi yêu cầu đặt lại mật khẩu tới API của Locket
         const response = await fetch(
             `${process.env.REACT_APP_PASSWORD_RESET_URL}?key=${process.env.REACT_APP_API_KEY}`,
             {
