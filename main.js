@@ -1,7 +1,6 @@
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const dotenv = require("dotenv");
-const fetch = require("node-fetch");
 const envFile =
     process.env.NODE_ENV === "production"
         ? ".env.production"
@@ -9,6 +8,7 @@ const envFile =
 
 dotenv.config({ path: envFile });
 
+const fetch = require("node-fetch"); // Dùng để gửi yêu cầu HTTP
 const cors = require("cors");
 const { logInfo } = require("./src/services/logger.service.js");
 
@@ -41,8 +41,7 @@ const PORT = process.env.PORT;
 
 app.listen(PORT, () => {
     logInfo("main.js", `Server backend is running at localhost:${PORT}`);
-
-// Ping server mỗi 5 phút để giữ cho nó không bị "ngủ"
+    // Ping server mỗi 5 phút để giữ cho nó không bị "ngủ"
     setInterval(() => {
         fetch(`http://localhost:${PORT}`)
             .then(res => logInfo("main.js", `Ping result: ${res.status}`))
