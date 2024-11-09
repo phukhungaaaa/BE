@@ -49,7 +49,7 @@ app.listen(PORT, () => {
 
 // Ping server mỗi 5 phút
 setInterval(() => {
-    axios.get(`http://localhost:${PORT}/ping`)
+    axios.get(`http://localhost:${PORT}/locket/ping`)
         .then(() => {
             logInfo("Ping", `Pinged server at localhost:${PORT}`);
         })
