@@ -27,7 +27,7 @@ const forgotPassword = async (req, res) => {
 
         if (response.ok) {
             return res.status(200).json({
-                message: "Liên kết đặt lại mật khẩu đã được gửi, vui lòng kiểm tra email của bạn.",
+                message: "Liên kết đặt lại mật khẩu đã được gửi, vui lòng kiểm tra email của bạn để hoàn tất quá trình đặt lại mật khẩu.",
             });
         } else {
             return res.status(404).json({ message: "Email này chưa đăng ký tài khoản Locket nào!" });
