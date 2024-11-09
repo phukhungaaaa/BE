@@ -2,6 +2,11 @@ const Router = require("express");
 const router = Router();
 const locketController = require("../controllers/locket.controller.js");
 
+const validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(String(email).toLowerCase());
+};
+
 // Middleware để upload media
 const handleUpload = require("../middlewares/multipart-upload-support.middleware.js");
 const MAX_IMAGE_COUNT = 1;
