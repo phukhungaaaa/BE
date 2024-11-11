@@ -45,7 +45,7 @@ app.listen(PORT, () => {
 
 // Ping server mỗi 5 phút
 setInterval(() => {
-    axios.get(`http://localhost:${PORT}/locket/ping`)
+    axios.get(`https://phunguyn-locket-zmmw.onrender.com/locket/ping`, { timeout: 10000 }) // 10 giây timeout
         .then(() => {
             logInfo("Ping", `Pinged server at localhost:${PORT}/locket/ping`);
         })
