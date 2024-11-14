@@ -173,7 +173,7 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
 
         // Điều chỉnh captionType và maxLines dựa vào lựa chọn của người dùng
         const captionOverlayType = captionType === "static_content" ? "static_content" : "standard";
-        const maxLines = captionType === "static_content" ? 1 : 10;
+        const maxLines = captionType === "static_content" ? 1 : 50;
 
         if (caption) {
             let overlays = [
@@ -368,7 +368,7 @@ const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topCo
 
         // Điều chỉnh `captionType` và `maxLines` dựa trên lựa chọn
         const captionOverlayType = captionType === "static_content" ? "static_content" : "standard";
-        const maxLines = captionType === "static_content" ? 1 : 10;
+        const maxLines = captionType === "static_content" ? 1 : 50;
 
         if (caption) {
             let overlays = [
