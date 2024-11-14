@@ -326,22 +326,13 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
 
 const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor, captionType) => {
     try {
-        // Kiểm tra và gán màu nếu thiếu
+        // Xử lý màu nền nếu không có giá trị
         const topBackgroundColor = topColor || (bottomColor ? "#000000E6" : null);
         const bottomBackgroundColor = bottomColor || (topColor ? "#000000E6" : null);
-
-        // Tạo mảng colors nếu có ít nhất một màu
         const colors = topBackgroundColor && bottomBackgroundColor ? [topBackgroundColor, bottomBackgroundColor] : [];
+        const formattedTextColor = textColor && !textColor.endsWith('E6') ? `${textColor}E6` : textColor || "#FFFFFFE6";
 
-        // Đảm bảo textColor luôn có thêm E6 vào cuối nếu chưa có
-        const formattedTextColor = textColor && !textColor.endsWith('E6') 
-            ? `${textColor}E6` 
-            : textColor || "#FFFFFFE6"; // Mặc định là màu trắng với độ trong suốt
-
-        // Nếu có caption và có màu chữ mà không có background, nền mặc định là đen E6
-        const backgroundColors = caption && !colors.length && textColor && textColor !== "#FFFFFFE6"
-            ? ["#000000E6", "#000000E6"]
-            : colors;
+        const backgroundColors = colors.length ? colors : [];
 
         const postHeaders = {
             "content-type": "application/json",
@@ -352,66 +343,30 @@ const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topCo
             data: {
                 thumbnail_url: thumbnailUrl,
                 video_url: videoUrl,
+                md5: getMd5Hash(videoUrl),
                 sent_to_all: true,
                 analytics: {
+                    // Các flag analytics giữ nguyên
                     experiments: {
-                        flag_4: {
-                            "@type": "type.googleapis.com/google.protobuf.Int64Value",
-                            value: "43",
-                        },
-                        flag_10: {
-                            "@type": "type.googleapis.com/google.protobuf.Int64Value",
-                            value: "505",
-                        },
-                        flag_23: {
-                            "@type": "type.googleapis.com/google.protobuf.Int64Value",
-                            value: "400",
-                        },
-                        flag_22: {
-                            "@type": "type.googleapis.com/google.protobuf.Int64Value",
-                            value: "1203",
-                        },
-                        flag_19: {
-                            "@type": "type.googleapis.com/google.protobuf.Int64Value",
-                            value: "52",
-                        },
-                        flag_18: {
-                            "@type": "type.googleapis.com/google.protobuf.Int64Value",
-                            value: "1203",
-                        },
-                        flag_16: {
-                            "@type": "type.googleapis.com/google.protobuf.Int64Value",
-                            value: "303",
-                        },
-                        flag_15: {
-                            "@type": "type.googleapis.com/google.protobuf.Int64Value",
-                            value: "501",
-                        },
-                        flag_14: {
-                            "@type": "type.googleapis.com/google.protobuf.Int64Value",
-                            value: "500",
-                        },
-                        flag_25: {
-                            "@type": "type.googleapis.com/google.protobuf.Int64Value",
-                            value: "23",
-                        },
+                        flag_4: { "@type": "type.googleapis.com/google.protobuf.Int64Value", value: "43" },
+                        flag_10: { "@type": "type.googleapis.com/google.protobuf.Int64Value", value: "505" },
+                        flag_23: { "@type": "type.googleapis.com/google.protobuf.Int64Value", value: "400" },
+                        flag_22: { "@type": "type.googleapis.com/google.protobuf.Int64Value", value: "1203" },
+                        flag_19: { "@type": "type.googleapis.com/google.protobuf.Int64Value", value: "52" },
+                        flag_18: { "@type": "type.googleapis.com/google.protobuf.Int64Value", value: "1203" },
+                        flag_16: { "@type": "type.googleapis.com/google.protobuf.Int64Value", value: "303" },
+                        flag_15: { "@type": "type.googleapis.com/google.protobuf.Int64Value", value: "501" },
+                        flag_14: { "@type": "type.googleapis.com/google.protobuf.Int64Value", value: "500" },
+                        flag_25: { "@type": "type.googleapis.com/google.protobuf.Int64Value", value: "23" },
                     },
-                    amplitude: {
-                        device_id: "BF5D1FD7-9E4D-4F8B-AB68-B89ED20398A6",
-                        session_id: {
-                            value: "1722437166613",
-                            "@type": "type.googleapis.com/google.protobuf.Int64Value",
-                        },
-                    },
-                    google_analytics: {
-                        app_instance_id: "5BDC04DA16FF4B0C9CA14FFB9C502900",
-                    },
+                    amplitude: { device_id: "BF5D1FD7-9E4D-4F8B-AB68-B89ED20398A6", session_id: { value: "1722437166613", "@type": "type.googleapis.com/google.protobuf.Int64Value" } },
+                    google_analytics: { app_instance_id: "5BDC04DA16FF4B0C9CA14FFB9C502900" },
                     platform: "ios",
-                }
+                },
             },
         };
 
-        // Điều chỉnh captionType và maxLines dựa vào lựa chọn của người dùng
+        // Điều chỉnh `captionType` và `maxLines` dựa trên lựa chọn
         const captionOverlayType = captionType === "static_content" ? "static_content" : "standard";
         const maxLines = captionType === "static_content" ? 1 : 10;
 
@@ -423,10 +378,7 @@ const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topCo
                         text_color: formattedTextColor,
                         type: captionOverlayType,
                         max_lines: maxLines,
-                        background: backgroundColors.length ? { 
-                            material_blur: "ultra_thin", 
-                            colors: backgroundColors 
-                        } : undefined,
+                        background: backgroundColors.length ? { colors: backgroundColors } : { colors: [], material_blur: "ultra_thin" },
                     },
                     alt_text: caption,
                     overlay_id: "caption:standard",
@@ -455,7 +407,7 @@ const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topCo
     }
 };
 
-const postVideo = async (userId, idToken, video, caption, topColor, bottomColor, textColor) => {
+const postVideo = async (userId, idToken, video, caption, topColor, bottomColor, textColor, captionType) => {
     try {
         logInfo("postVideo", "Start");
 
@@ -477,7 +429,7 @@ const postVideo = async (userId, idToken, video, caption, topColor, bottomColor,
         }
 
         // Đăng video lên Locket kèm theo caption, màu chữ và màu nền (nếu có)
-        await postVideoToLocket(idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor);
+        await postVideoToLocket(idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor, captionType);
 
         logInfo("postVideo", "End");
     } catch (error) {
