@@ -145,29 +145,20 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
     }
 };
 
-const postImage = async (userId, idToken, image, caption, topColor, bottomColor, textColor) => {
+const postImage = async (userId, idToken, image, caption, topColor, bottomColor, textColor, captionType) => {
     try {
         logInfo("postImage", "Start");
         const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
 
-        // Kiểm tra và gán màu nếu thiếu
         const topBackgroundColor = topColor || (bottomColor ? "#000000E6" : null);
         const bottomBackgroundColor = bottomColor || (topColor ? "#000000E6" : null);
-
-        // Tạo mảng colors nếu có ít nhất 1 màu
         const colors = topBackgroundColor && bottomBackgroundColor ? [topBackgroundColor, bottomBackgroundColor] : [];
-
-        // Đảm bảo textColor luôn có thêm E6 vào cuối nếu chưa có
         const formattedTextColor = textColor && !textColor.endsWith('E6') 
             ? `${textColor}E6` 
-            : textColor || "#FFFFFFE6"; // Mặc định là màu trắng với hậu tố E6
+            : textColor || "#FFFFFFE6";
 
-        // Nếu có caption và có màu chữ mà không có background thì background mặc định là màu đen E6
-        const backgroundColors = caption && !colors.length && textColor && textColor !== "#FFFFFFE6" 
-            ? ["#000000E6", "#000000E6"] 
-            : colors;
+        const backgroundColors = colors.length ? colors : [];
 
-        // Tạo bài viết mới
         const postHeaders = {
             "Content-Type": "application/json",
             Authorization: `Bearer ${idToken}`,
@@ -178,30 +169,33 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
                 thumbnail_url: imageUrl,
                 sent_to_all: true
             },
-        }
+        };
 
-        // Chỉ thêm overlays nếu có caption
+        // Điều chỉnh captionType và maxLines dựa vào lựa chọn của người dùng
+        const captionOverlayType = captionType === "static_content" ? "static_content" : "standard";
+        const maxLines = captionType === "static_content" ? 1 : 10;
+
         if (caption) {
-            if (backgroundColors.length || textColor !== "#FFFFFFE6") {
-                let overlays = [
-                    {
-                      data: {
-                          text: caption,
-                          text_color: formattedTextColor,
-                          type: "static_content",
-                          max_lines: 10,
-                          background: backgroundColors.length ? { colors: backgroundColors } : undefined,
-                      },
-                      alt_text: caption,
-                      overlay_id: "caption:standard",
-                      overlay_type: "caption",
-                    }
-                ];
-                payload.data.overlays = overlays;
-            } else {
-                // Nếu không có background và màu chữ mặc định thì chỉ gửi caption
-                payload.data.caption = caption;
-            }
+            let overlays = [
+                {
+                    data: {
+                        text: caption,
+                        text_color: formattedTextColor,
+                        type: captionOverlayType,
+                        max_lines: maxLines,
+                        background: backgroundColors.length ? { colors: backgroundColors } : {
+                            colors: [],
+                            material_blur: "ultra_thin"
+                        },
+                    },
+                    alt_text: caption,
+                    overlay_id: "caption:standard",
+                    overlay_type: "caption",
+                }
+            ];
+            payload.data.overlays = overlays;
+        } else {
+            payload.data.caption = caption;
         }
 
         const postData = JSON.stringify(payload);
