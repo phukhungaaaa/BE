@@ -145,7 +145,7 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
     }
 };
 
-const postImage = async (userId, idToken, image, caption, topColor, bottomColor, textColor, captionType) => {
+const postImage = async (userId, idToken, image, caption, topColor, bottomColor, textColor, captionType, visibleTo) => {
     try {
         logInfo("postImage", "Start");
         const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
@@ -167,9 +167,13 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         let payload = {
             data: {
                 thumbnail_url: imageUrl,
-                sent_to_all: true
+                sent_to_all: !visibleTo || visibleTo.length === 0 || visibleTo === "null", // Gửi đến tất cả nếu visibleTo null, rỗng hoặc là chuỗi "null"
             },
         };
+
+        if (visibleTo && visibleTo !== "null" && visibleTo.length > 0) {
+            payload.data.recipients = visibleTo.split(","); // Chuyển chuỗi `uid1,uid2` thành mảng
+        }
 
         // Điều chỉnh captionType và maxLines dựa vào lựa chọn của người dùng
         const captionOverlayType = captionType === "static_content" ? "static_content" : "standard";
