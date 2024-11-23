@@ -328,7 +328,7 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
     }
 };
 
-const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor, captionType) => {
+const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor, captionType, visibleTo) => {
     try {
         // Xử lý màu nền nếu không có giá trị
         const topBackgroundColor = topColor || (bottomColor ? "#000000E6" : null);
@@ -348,7 +348,7 @@ const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topCo
                 thumbnail_url: thumbnailUrl,
                 video_url: videoUrl,
                 md5: getMd5Hash(videoUrl),
-                sent_to_all: true,
+                sent_to_all: !visibleTo || visibleTo.length === 0 || visibleTo === "null", // Gửi đến tất cả nếu visibleTo null, rỗng hoặc là chuỗi "null"
                 analytics: {
                     // Các flag analytics giữ nguyên
                     experiments: {
@@ -369,6 +369,10 @@ const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topCo
                 },
             },
         };
+
+        if (visibleTo && visibleTo !== "null" && visibleTo.length > 0) {
+            payload.data.recipients = visibleTo.split(","); // Chuyển chuỗi `uid1,uid2` thành mảng
+        }
 
         // Điều chỉnh `captionType` và `maxLines` dựa trên lựa chọn
         const captionOverlayType = captionType === "static_content" ? "static_content" : "standard";
@@ -411,7 +415,7 @@ const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topCo
     }
 };
 
-const postVideo = async (userId, idToken, video, caption, topColor, bottomColor, textColor, captionType) => {
+const postVideo = async (userId, idToken, video, caption, topColor, bottomColor, textColor, captionType, visibleTo) => {
     try {
         logInfo("postVideo", "Start");
 
@@ -433,7 +437,7 @@ const postVideo = async (userId, idToken, video, caption, topColor, bottomColor,
         }
 
         // Đăng video lên Locket kèm theo caption, màu chữ và màu nền (nếu có)
-        await postVideoToLocket(idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor, captionType);
+        await postVideoToLocket(idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor, captionType, visibleTo);
 
         logInfo("postVideo", "End");
     } catch (error) {
