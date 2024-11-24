@@ -27,10 +27,15 @@ exports.getProfile = async (req, res) => {
       }
     );
 
-    const { first_name, last_name, ...rest } = response.data;
+    const userData = response.data?.result?.data;
+    if (!userData) {
+      return res.status(500).json({ error: "Invalid API response structure" });
+    }
+
+    const { first_name, last_name, ...rest } = userData;
     const result = {
       ...rest,
-      name: `${first_name} ${last_name}`,
+      name: `${first_name || ""} ${last_name || ""}`.trim(),
     };
 
     return res.status(200).json(result);
