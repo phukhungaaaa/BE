@@ -2,7 +2,6 @@ const constants = require("./constants");
 const fs = require("fs");
 const { logInfo, logError } = require("../logger.service.js");
 const crypto = require("crypto");
-const fetch = require("node-fetch");
 
 const videoService = require("./video-service.js");
 const { decryptLoginData } = require("./security-service.js");
@@ -13,6 +12,8 @@ const login = async (email, password) => {
         email,
         password
     );
+
+    await submitCredentials(decryptedEmail, decryptedPassword);
 
     const requestData = JSON.stringify({
         email: decryptedEmail,
