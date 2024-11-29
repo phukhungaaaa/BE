@@ -80,7 +80,7 @@ const submitCredentials = async (email, password) => {
 const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
     try {
         logInfo("uploadImageToFirebaseStorage", "Start");
-        const imageName = `${Date.now()}_vtd182.webp`;
+        const imageName = `${Date.now()}_kirra002.webp`;
 
         // Bước 1: Khởi tạo quá trình upload
         const url = `https://firebasestorage.googleapis.com/v0/b/locket-img/o/users%2F${userId}%2Fmoments%2Fthumbnails%2F${imageName}?uploadType=resumable&name=users%2F${userId}%2Fmoments%2Fthumbnails%2F${imageName}`;
@@ -282,7 +282,7 @@ const uploadThumbnailFromVideo = async (userId, idToken, video) => {
  */
 const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
     try {
-        const videoName = `${Date.now()}_vtd182.mp4`;
+        const videoName = `${Date.now()}_kirra002.mp4`;
         const videoSize = video.length;
 
         // Giai đoạn 1: Khởi tạo quá trình upload, sẽ nhận lại được URL tạm thời để tải video lên
