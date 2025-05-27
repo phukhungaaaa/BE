@@ -516,7 +516,7 @@ const postVideo = async (userId, idToken, video, caption, topColor, bottomColor,
         }
 
         // Đăng video lên Locket kèm theo caption, màu chữ và màu nền (nếu có)
-        await postVideoToLocket(idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor, captionType, visibleTo);
+        await postVideoToLocket(idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor, captionType, selectedBadge, visibleTo);
 
         logInfo("postVideo", "End");
     } catch (error) {
