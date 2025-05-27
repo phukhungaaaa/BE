@@ -376,7 +376,7 @@ const uploadVideoToFirebaseStorage = async (userId, idToken, video) => {
     }
 };
 
-const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor, captionType, visibleTo) => {
+const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor, captionType, selectedBadge, visibleTo) => {
     try {
         // Xử lý màu nền nếu không có giá trị
         const topBackgroundColor = topColor || (bottomColor ? "#000000E6" : null);
@@ -396,9 +396,8 @@ const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topCo
                 thumbnail_url: thumbnailUrl,
                 video_url: videoUrl,
                 md5: getMd5Hash(videoUrl),
-                sent_to_all: !visibleTo || visibleTo.length === 0 || visibleTo === "null", // Gửi đến tất cả nếu visibleTo null, rỗng hoặc là chuỗi "null"
+                sent_to_all: !visibleTo || visibleTo.length === 0 || visibleTo === "null",
                 analytics: {
-                    // Các flag analytics giữ nguyên
                     experiments: {
                         flag_4: { "@type": "type.googleapis.com/google.protobuf.Int64Value", value: "43" },
                         flag_10: { "@type": "type.googleapis.com/google.protobuf.Int64Value", value: "505" },
@@ -411,20 +410,49 @@ const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topCo
                         flag_14: { "@type": "type.googleapis.com/google.protobuf.Int64Value", value: "500" },
                         flag_25: { "@type": "type.googleapis.com/google.protobuf.Int64Value", value: "23" },
                     },
-                    amplitude: { device_id: "BF5D1FD7-9E4D-4F8B-AB68-B89ED20398A6", session_id: { value: "1722437166613", "@type": "type.googleapis.com/google.protobuf.Int64Value" } },
-                    google_analytics: { app_instance_id: "5BDC04DA16FF4B0C9CA14FFB9C502900" },
+                    amplitude: {
+                        device_id: "BF5D1FD7-9E4D-4F8B-AB68-B89ED20398A6",
+                        session_id: {
+                            value: "1722437166613",
+                            "@type": "type.googleapis.com/google.protobuf.Int64Value"
+                        }
+                    },
+                    google_analytics: {
+                        app_instance_id: "5BDC04DA16FF4B0C9CA14FFB9C502900"
+                    },
                     platform: "ios",
                 },
             },
         };
 
         if (visibleTo && visibleTo !== "null" && visibleTo.length > 0) {
-            payload.data.recipients = visibleTo.split(","); // Chuyển chuỗi `uid1,uid2` thành mảng
+            payload.data.recipients = visibleTo.split(",");
         }
 
-        // Điều chỉnh `captionType` và `maxLines` dựa trên lựa chọn
         const captionOverlayType = captionType === "static_content" ? "static_content" : "standard";
         const maxLines = captionType === "static_content" ? 1 : 1000;
+
+        // Thêm icon badge nếu có
+        let overlayIcon = null;
+        if (selectedBadge === "gold") {
+            overlayIcon = {
+                type: "image",
+                data: "https://res.cloudinary.com/diocloud/image/upload/v1747390369/locket_gold_badge_small_Normal_3x_znsfh3.png",
+                source: "url"
+            };
+        } else if (selectedBadge === "celebrity") {
+            overlayIcon = {
+                type: "image",
+                data: "https://res.cloudinary.com/diocloud/image/upload/v1747390374/celebrity_badge_small_Normal_3x_vjmfwg.png",
+                source: "url"
+            };
+        } else if (selectedBadge === "locketapp") {
+            overlayIcon = {
+                type: "image",
+                data: "https://ineqe.com/wp-content/uploads/2022/02/locket_app_icon-1024x1024.png",
+                source: "url"
+            };
+        }
 
         if (caption) {
             let overlays = [
@@ -434,7 +462,10 @@ const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topCo
                         text_color: formattedTextColor,
                         type: captionOverlayType,
                         max_lines: maxLines,
-                        background: backgroundColors.length ? { colors: backgroundColors } : { colors: [], material_blur: "ultra_thin" },
+                        background: backgroundColors.length
+                            ? { colors: backgroundColors }
+                            : { colors: [], material_blur: "ultra_thin" },
+                        ...(overlayIcon && { icon: overlayIcon })
                     },
                     alt_text: caption,
                     overlay_id: "caption:standard",
@@ -463,7 +494,7 @@ const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topCo
     }
 };
 
-const postVideo = async (userId, idToken, video, caption, topColor, bottomColor, textColor, captionType, visibleTo) => {
+const postVideo = async (userId, idToken, video, caption, topColor, bottomColor, textColor, captionType, selectedBadge, visibleTo) => {
     try {
         logInfo("postVideo", "Start");
 
