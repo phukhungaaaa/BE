@@ -224,7 +224,7 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
             },  
         },  
         alt_text: caption,  
-        overlay_id: "caption:standard",  
+        overlay_id: "caption:reunification_day_2025",  
         overlay_type: "caption",  
     }  
 ];
