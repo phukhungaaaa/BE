@@ -171,7 +171,7 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
     }
 };
 
-const postImage = async (userId, idToken, image, caption, topColor, bottomColor, textColor, captionType, visibleTo) => {
+const postImage = async (userId, idToken, image, caption, topColor, bottomColor, textColor, captionType, selectedBadge, visibleTo) => {
     try {
         logInfo("postImage", "Start");
         const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
@@ -193,41 +193,58 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         let payload = {
             data: {
                 thumbnail_url: imageUrl,
-                sent_to_all: !visibleTo || visibleTo.length === 0 || visibleTo === "null", // Gửi đến tất cả nếu visibleTo null, rỗng hoặc là chuỗi "null"
+                sent_to_all: !visibleTo || visibleTo.length === 0 || visibleTo === "null",
             },
         };
 
         if (visibleTo && visibleTo !== "null" && visibleTo.length > 0) {
-            payload.data.recipients = visibleTo.split(","); // Chuyển chuỗi `uid1,uid2` thành mảng
+            payload.data.recipients = visibleTo.split(",");
         }
 
-        // Điều chỉnh captionType và maxLines dựa vào lựa chọn của người dùng
         const captionOverlayType = captionType === "static_content" ? "static_content" : "standard";
         const maxLines = captionType === "static_content" ? 1 : 1000;
 
-        if (caption) {
-            let overlays = [  
-    {  
-        data: {  
-            text: caption,  
-            text_color: formattedTextColor,  
-            type: captionOverlayType,  
-            max_lines: maxLines,  
-            icon: {
+        // Badge xử lý ở đây
+        let overlayIcon = null;
+        if (selectedBadge === "gold") {
+            overlayIcon = {
                 type: "image",
                 data: "https://res.cloudinary.com/diocloud/image/upload/v1747390369/locket_gold_badge_small_Normal_3x_znsfh3.png",
                 source: "url"
-            },
-            background: backgroundColors.length ? { colors: backgroundColors } : {  
-                colors: [],  
-                material_blur: "ultra_thin"  
-            },  
-        },  
-        alt_text: caption,  
-        overlay_id: "caption:reunification_day_2025",  
-        overlay_type: "caption",  
-    }  
-];
+            };
+        } else if (selectedBadge === "celebrity") {
+            overlayIcon = {
+                type: "image",
+                data: "https://res.cloudinary.com/diocloud/image/upload/v1747390374/celebrity_badge_small_Normal_3x_vjmfwg.png",
+                source: "url"
+            };
+        } else if (selectedBadge === "locketapp") {
+            overlayIcon = {
+                type: "image",
+                data: "https://ineqe.com/wp-content/uploads/2022/02/locket_app_icon-1024x1024.png",
+                source: "url"
+            };
+        }
+
+        if (caption) {
+            let overlays = [
+                {
+                    data: {
+                        text: caption,
+                        text_color: formattedTextColor,
+                        type: captionOverlayType,
+                        max_lines: maxLines,
+                        background: backgroundColors.length ? { colors: backgroundColors } : {
+                            colors: [],
+                            material_blur: "ultra_thin"
+                        },
+                        ...(overlayIcon && { icon: overlayIcon }) // Chỉ thêm icon nếu tồn tại
+                    },
+                    alt_text: caption,
+                    overlay_id: "caption:standard",
+                    overlay_type: "caption",
+                }
+            ];
             payload.data.overlays = overlays;
         } else {
             payload.data.caption = caption;
