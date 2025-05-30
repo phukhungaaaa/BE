@@ -4,7 +4,6 @@ const { logInfo, logError } = require("../logger.service.js");
 const crypto = require("crypto");
 const { resizeAndMaybeCompress } = require('../videoProcessor');
 const path = require('path');
-const { compressImageToMax1MB } = require('../imageProcessor');
 
 const videoService = require("./video-service.js");
 const { decryptLoginData } = require("./security-service.js");
@@ -166,17 +165,18 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
     } catch (error) {
         logError("uploadImageToFirebaseStorage", error.message);
         throw error;
+    } finally {
+        // Xoá file ảnh tạm
+        if (image.path) {
+            fs.unlinkSync(image.path);
+        }
     }
 };
 
 const postImage = async (userId, idToken, image, caption, topColor, bottomColor, textColor, captionType, selectedBadge, visibleTo) => {
-    let result = null;
-
     try {
         logInfo("postImage", "Start");
-
-        result = await compressImageToMax1MB(image.path);
-        const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, fs.readFileSync(result.finalPath));
+        const imageUrl = await uploadImageToFirebaseStorage(userId, idToken, image);
 
         const topBackgroundColor = topColor || (bottomColor ? "#000000E6" : null);
         const bottomBackgroundColor = bottomColor || (topColor ? "#000000E6" : null);
@@ -206,6 +206,7 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
         const captionOverlayType = captionType === "static_content" ? "static_content" : "standard";
         const maxLines = captionType === "static_content" ? 1 : 1000;
 
+        // Badge xử lý ở đây
         let overlayIcon = null;
         if (selectedBadge === "gold") {
             overlayIcon = {
@@ -239,7 +240,7 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
                             colors: [],
                             material_blur: "ultra_thin"
                         },
-                        ...(overlayIcon && { icon: overlayIcon })
+                        ...(overlayIcon && { icon: overlayIcon }) // Chỉ thêm icon nếu tồn tại
                     },
                     alt_text: caption,
                     overlay_id: "caption:standard",
@@ -267,16 +268,9 @@ const postImage = async (userId, idToken, image, caption, topColor, bottomColor,
     } catch (error) {
         logError("postImage", error.message);
         throw error;
-    } finally {
-        if (image.path && fs.existsSync(image.path)) {
-            fs.unlinkSync(image.path);
-        }
-
-        if (result?.finalPath && fs.existsSync(result.finalPath)) {
-            fs.unlinkSync(result.finalPath);
-        }
     }
 };
+
 //#endregion
 
 //#region Video handlers
