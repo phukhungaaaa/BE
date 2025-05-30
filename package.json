@@ -30,8 +30,7 @@
     "node-request-context": "^1.0.5",
     "request-promise": "^4.2.6",
     "axios": "^1.7.7",
-    "nodemailer": "^6.7.2",
-    "sharp": "^0.33.2"
+    "nodemailer": "^6.7.2"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
