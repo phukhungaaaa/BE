@@ -166,11 +166,6 @@ const uploadImageToFirebaseStorage = async (userId, idToken, image) => {
     } catch (error) {
         logError("uploadImageToFirebaseStorage", error.message);
         throw error;
-    } finally {
-        // Xoá file ảnh tạm
-        if (image.path) {
-            fs.unlinkSync(image.path);
-        }
     }
 };
 
