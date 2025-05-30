@@ -40,7 +40,7 @@ const compressToExactSize = async (inputPath, targetSize) => {
           '-vf', 'scale=500:500',
           '-vcodec', 'libx264',
           '-crf', `${midCrf}`,
-          '-preset', fast',
+          '-preset', 'fast',
           '-acodec', 'aac',
           '-b:a', '128k'
         ])
