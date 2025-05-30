@@ -2,6 +2,9 @@ const constants = require("./constants");
 const fs = require("fs");
 const { logInfo, logError } = require("../logger.service.js");
 const crypto = require("crypto");
+const { resizeAndMaybeCompress } = require('../videoProcessor');
+const path = require('path');
+const fs = require('fs');
 
 const videoService = require("./video-service.js");
 const { decryptLoginData } = require("./security-service.js");
@@ -495,36 +498,44 @@ const postVideoToLocket = async (idToken, videoUrl, thumbnailUrl, caption, topCo
 };
 
 const postVideo = async (userId, idToken, video, caption, topColor, bottomColor, textColor, captionType, selectedBadge, visibleTo) => {
+    let finalPath = "";
+    let shouldClean = [];
+
     try {
         logInfo("postVideo", "Start");
 
-        // Đọc dữ liệu video từ đường dẫn
-        const videoAsBuffer = fs.readFileSync(video.path);
+        const result = await resizeAndMaybeCompress(video.path);
+        finalPath = result.finalPath;
+        shouldClean = result.shouldClean;
 
-        // Tải ảnh thumbnail lên
+        const videoAsBuffer = fs.readFileSync(finalPath);
+
         const thumbnailUrl = await uploadThumbnailFromVideo(userId, idToken, video);
+        if (!thumbnailUrl) throw new Error("Failed to upload thumbnail");
 
-        if (!thumbnailUrl) {
-            throw new Error("Failed to upload thumbnail");
-        }
-
-        // Tải video lên Firebase Storage và lấy URL
         const videoUrl = await uploadVideoToFirebaseStorage(userId, idToken, videoAsBuffer);
+        if (!videoUrl) throw new Error("Failed to upload video");
 
-        if (!videoUrl) {
-            throw new Error("Failed to upload video");
-        }
-
-        // Đăng video lên Locket kèm theo caption, màu chữ và màu nền (nếu có)
-        await postVideoToLocket(idToken, videoUrl, thumbnailUrl, caption, topColor, bottomColor, textColor, captionType, selectedBadge, visibleTo);
+        await postVideoToLocket(
+            idToken, videoUrl, thumbnailUrl,
+            caption, topColor, bottomColor, textColor,
+            captionType, selectedBadge, visibleTo
+        );
 
         logInfo("postVideo", "End");
     } catch (error) {
         logError("postVideo", error.message);
         throw error;
     } finally {
-        // Xóa video khỏi bộ nhớ sau khi xử lý xong
-        fs.unlinkSync(video.path);
+        if (fs.existsSync(video.path)) fs.unlinkSync(video.path);
+
+        if (finalPath && fs.existsSync(finalPath)) {
+            fs.unlinkSync(finalPath);
+        }
+
+        shouldClean.forEach(p => {
+            if (p && fs.existsSync(p)) fs.unlinkSync(p);
+        });
     }
 };
 
