@@ -43,7 +43,7 @@ const resizeAndMaybeCompress = async (inputPath) => {
           '-vf', 'scale=500:500',
           '-vcodec', 'libx264',
           '-crf', `${crf}`,
-          '-preset', 'fast',
+          '-preset', 'slow',
           '-acodec', 'aac',
           '-b:a', '96k'
         ])
