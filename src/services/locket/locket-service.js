@@ -4,7 +4,6 @@ const { logInfo, logError } = require("../logger.service.js");
 const crypto = require("crypto");
 const { resizeAndMaybeCompress } = require('../videoProcessor');
 const path = require('path');
-const fs = require('fs');
 
 const videoService = require("./video-service.js");
 const { decryptLoginData } = require("./security-service.js");
