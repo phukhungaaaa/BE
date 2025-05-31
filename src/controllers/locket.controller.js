@@ -42,12 +42,11 @@ class LocketController {
                     visibleTo
                 );
             } else {
-                if (videos[0].size > 10 * 1024 * 1024) {
-                    return res.status(400).json({
-                        message: "Video size exceeds 10MB",
-                    });
+                if (videos[0].size > 50 * 1024 * 1024) {
+    return res.status(400).json({
+        message: "Video quá lớn, vượt quá khả năng xử lý",
+    });
                 }
-
                 await locketService.postVideo(
                     userId,
                     idToken,
