@@ -7,23 +7,22 @@ if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
-// Resize video vuông 500x500
-const resizeVideo = (inputPath, outputPath) => {
+// Hàm xử lý encode: scale → crop trung tâm 500x500 → fps → crf → audio
+const fullCompress = (inputPath, outputPath, scale, fps, crf, audioBitrate = "32k") => {
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .outputOptions([
-        "-vf",
-        "scale='if(gt(iw,ih),-1,500)':'if(gt(ih,iw),-1,500)',crop=500:500",
-        "-vcodec",
-        "libx264",
-        "-crf",
-        "18",
-        "-preset",
-        "fast",
-        "-acodec",
-        "aac",
-        "-b:a",
-        "128k"
+        "-vf", `scale=${scale}:${scale},crop=500:500`,
+        "-r", `${fps}`,
+        "-vcodec", "libx264",
+        "-crf", `${crf}`,
+        "-preset", "veryfast",
+        "-tune", "film",
+        "-profile:v", "main",
+        "-movflags", "+faststart",
+        "-acodec", "aac",
+        "-b:a", audioBitrate,
+        "-ac", "1"
       ])
       .on("end", resolve)
       .on("error", reject)
@@ -31,89 +30,47 @@ const resizeVideo = (inputPath, outputPath) => {
   });
 };
 
-// Nén bằng cách thử nhiều tổ hợp CRF, FPS và Scale khác nhau
-const compressUntilUnderSize = async (inputPath, targetSizeBytes) => {
-  const crfRange = [24, 26, 28, 30, 32, 35];
-  const scaleOptions = [640, 480, 360];
-  const fpsRange = [30, 27, 24];
+// Hàm chính: vòng lặp scale → fps → crf
+const resizeAndMaybeCompress = async (inputPath) => {
+  const scaleOptions = [1080, 960, 840, 720, 640, 550, 500, 460, 420, 360];
+  const fpsOptions = [30, 27, 24];
+  const crfOptions = [24, 26, 28, 30, 32, 35];
+  const audioBitrate = "32k";
 
   let lastOutput = null;
 
   for (const scale of scaleOptions) {
-    for (const fps of fpsRange) {
-      for (const crf of crfRange) {
-        const tempOutput = path.join(
+    for (const fps of fpsOptions) {
+      for (const crf of crfOptions) {
+        const outputPath = path.join(
           TEMP_DIR,
           `compressed_${scale}px_${fps}fps_crf${crf}_${Date.now()}.mp4`
         );
 
-        console.log(`[Compress] Trying scale=${scale}px, fps=${fps}, CRF=${crf}...`);
+        console.log(`[Try] scale=${scale}px | fps=${fps} | crf=${crf}`);
 
         try {
-          await new Promise((resolve, reject) => {
-            ffmpeg(inputPath)
-              .outputOptions([
-                "-vf", `scale='min(${scale},iw)':-2`,
-                "-r", `${fps}`,
-                "-c:v", "libx264",
-                "-crf", `${crf}`,
-                "-preset", "veryfast",
-                "-tune", "film",
-                "-profile:v", "main",
-                "-movflags", "+faststart",
-                "-c:a", "aac",
-                "-b:a", "32k",
-                "-ac", "1"
-              ])
-              .on("end", resolve)
-              .on("error", reject)
-              .save(tempOutput);
-          });
+          await fullCompress(inputPath, outputPath, scale, fps, crf, audioBitrate);
+          const size = fs.statSync(outputPath).size;
 
-          const size = fs.statSync(tempOutput).size;
-          console.log(`[Compress] Output size: ${(size / 1024 / 1024).toFixed(2)} MB`);
+          console.log(`[Result] ${(size / 1024 / 1024).toFixed(2)} MB @ scale=${scale} fps=${fps} crf=${crf}`);
 
-          if (size <= targetSizeBytes) {
+          if (size <= MAX_SIZE) {
             if (lastOutput && fs.existsSync(lastOutput)) fs.unlinkSync(lastOutput);
-            return { finalPath: tempOutput, shouldClean: [] };
+            return { finalPath: outputPath, shouldClean: [] };
           } else {
             if (lastOutput && fs.existsSync(lastOutput)) fs.unlinkSync(lastOutput);
-            lastOutput = tempOutput;
+            lastOutput = outputPath;
           }
         } catch (err) {
-          console.error(`[Compress] Failed (scale=${scale}px, fps=${fps}, CRF=${crf}):`, err.message);
-          if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
+          console.error(`[Error] Failed at scale=${scale}, fps=${fps}, crf=${crf}: ${err.message}`);
+          if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
         }
       }
     }
   }
 
-  throw new Error("Unable to compress video under 5MB, even with max compression.");
-};
-
-// Hàm chính: Resize trước, nếu cần thì nén theo chiến lược thông minh
-const resizeAndMaybeCompress = async (inputPath) => {
-  const resizedPath = path.join(TEMP_DIR, `resized_${Date.now()}.mp4`);
-  await resizeVideo(inputPath, resizedPath);
-
-  const resizedSize = fs.statSync(resizedPath).size;
-  console.log(`[Resize] Output size: ${(resizedSize / 1024 / 1024).toFixed(2)} MB`);
-
-  if (resizedSize <= MAX_SIZE) {
-    console.log("[Resize] File already under 5MB, using resized video.");
-    return { finalPath: resizedPath, shouldClean: [] };
-  }
-
-  try {
-    const { finalPath, shouldClean } = await compressUntilUnderSize(
-      resizedPath,
-      MAX_SIZE
-    );
-    return { finalPath, shouldClean: [resizedPath, ...shouldClean] };
-  } catch (err) {
-    console.error("[Error] Compression failed:", err.message);
-    throw err;
-  }
+  throw new Error("❌ Unable to compress video to 5MB or less.");
 };
 
 module.exports = {
