@@ -7,6 +7,7 @@ if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
+// Resize vuông 500x500 như cũ
 const resizeVideo = (inputPath, outputPath) => {
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
@@ -24,79 +25,29 @@ const resizeVideo = (inputPath, outputPath) => {
   });
 };
 
-const getVideoDurationInSeconds = (filePath) => {
-  return new Promise((resolve, reject) => {
-    ffmpeg.ffprobe(filePath, (err, metadata) => {
-      if (err) return reject(err);
-      resolve(metadata.format.duration);
-    });
-  });
-};
-
-const compressWithBitrate = async (inputPath, outputPath, targetSizeBytes, durationSec) => {
-  const audioBitrateKbps = 64;
-  const totalBitrateKbps = Math.floor((targetSizeBytes * 8) / durationSec / 1000);
-  const videoBitrateKbps = Math.max(100, totalBitrateKbps - audioBitrateKbps);
-
+// Nén kiểu Messenger: scale về 640p, CRF 30, giữ chất lượng
+const compressLikeMessenger = async (inputPath, outputPath) => {
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .outputOptions([
-        `-b:v ${videoBitrateKbps}k`,
-        `-b:a ${audioBitrateKbps}k`,
-        '-vf scale=500:500',
-        '-vcodec libx264',
-        '-acodec aac',
-        '-preset veryfast'
+        "-vf", "scale='min(640,iw)':-2",
+        "-c:v", "libx264",
+        "-crf", "30",
+        "-preset", "veryfast",
+        "-tune", "film",
+        "-profile:v", "main",
+        "-movflags", "+faststart",
+        "-c:a", "aac",
+        "-b:a", "48k",
+        "-ac", "1"
       ])
-      .on('end', () => resolve(outputPath))
-      .on('error', reject)
+      .on("end", () => resolve(outputPath))
+      .on("error", reject)
       .save(outputPath);
   });
 };
 
-const compressToExactSize = async (inputPath, targetSize) => {
-  let minCrf = 18;
-  let maxCrf = 35;
-  let bestFitPath = null;
-
-  while (minCrf <= maxCrf) {
-    const midCrf = Math.floor((minCrf + maxCrf) / 2);
-    const tempOutput = path.join(TEMP_DIR, `crf_${midCrf}_${Date.now()}.mp4`);
-
-    await new Promise((resolve, reject) => {
-      ffmpeg(inputPath)
-        .outputOptions([
-          '-vf scale=500:500',
-          '-vcodec libx264',
-          `-crf ${midCrf}`,
-          '-preset fast',
-          '-acodec aac',
-          '-b:a 96k'
-        ])
-        .on('end', resolve)
-        .on('error', reject)
-        .save(tempOutput);
-    });
-
-    const size = fs.statSync(tempOutput).size;
-    console.log(`[CRF ${midCrf}] Output size: ${(size / 1024 / 1024).toFixed(2)} MB`);
-
-    if (size <= targetSize) {
-      if (bestFitPath) fs.unlinkSync(bestFitPath);
-      bestFitPath = tempOutput;
-      maxCrf = midCrf - 1;
-    } else {
-      fs.unlinkSync(tempOutput);
-      minCrf = midCrf + 1;
-    }
-  }
-
-  if (bestFitPath) return bestFitPath;
-
-  console.warn('[CRF] All CRF attempts failed. Falling back to bitrate...');
-  return null;
-};
-
+// Hàm chính: resize, nếu >5MB thì nén
 const resizeAndMaybeCompress = async (inputPath) => {
   const resizedPath = path.join(TEMP_DIR, `resized_${Date.now()}.mp4`);
   await resizeVideo(inputPath, resizedPath);
@@ -108,17 +59,12 @@ const resizeAndMaybeCompress = async (inputPath) => {
     return { finalPath: resizedPath, shouldClean: [] };
   }
 
-  const crfPath = await compressToExactSize(resizedPath, MAX_SIZE);
+  const compressedPath = path.join(TEMP_DIR, `messenger_${Date.now()}.mp4`);
+  await compressLikeMessenger(resizedPath, compressedPath);
 
-  if (crfPath) {
-    return { finalPath: crfPath, shouldClean: [resizedPath] };
-  }
-
-  const fallbackPath = path.join(TEMP_DIR, `bitrate_${Date.now()}.mp4`);
-  const duration = await getVideoDurationInSeconds(resizedPath);
-  await compressWithBitrate(resizedPath, fallbackPath, MAX_SIZE, duration);
-
-  return { finalPath: fallbackPath, shouldClean: [resizedPath] };
+  return { finalPath: compressedPath, shouldClean: [resizedPath] };
 };
 
-module.exports = { resizeAndMaybeCompress };
+module.exports = {
+  resizeAndMaybeCompress,
+};
