@@ -24,25 +24,54 @@ const resizeVideo = (inputPath, outputPath) => {
   });
 };
 
+const getVideoDurationInSeconds = (filePath) => {
+  return new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(filePath, (err, metadata) => {
+      if (err) return reject(err);
+      resolve(metadata.format.duration);
+    });
+  });
+};
+
+const compressWithBitrate = async (inputPath, outputPath, targetSizeBytes, durationSec) => {
+  const audioBitrateKbps = 64;
+  const totalBitrateKbps = Math.floor((targetSizeBytes * 8) / durationSec / 1000);
+  const videoBitrateKbps = Math.max(100, totalBitrateKbps - audioBitrateKbps);
+
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .outputOptions([
+        `-b:v ${videoBitrateKbps}k`,
+        `-b:a ${audioBitrateKbps}k`,
+        '-vf scale=500:500',
+        '-vcodec libx264',
+        '-acodec aac',
+        '-preset veryfast'
+      ])
+      .on('end', () => resolve(outputPath))
+      .on('error', reject)
+      .save(outputPath);
+  });
+};
+
 const compressToExactSize = async (inputPath, targetSize) => {
   let minCrf = 18;
   let maxCrf = 35;
   let bestFitPath = null;
-  let bestFitSize = 0;
 
   while (minCrf <= maxCrf) {
     const midCrf = Math.floor((minCrf + maxCrf) / 2);
-    const tempOutput = path.join(TEMP_DIR, `compress_${midCrf}_${Date.now()}.mp4`);
+    const tempOutput = path.join(TEMP_DIR, `crf_${midCrf}_${Date.now()}.mp4`);
 
     await new Promise((resolve, reject) => {
       ffmpeg(inputPath)
         .outputOptions([
-          '-vf', 'scale=500:500',
-          '-vcodec', 'libx264',
-          '-crf', `${midCrf}`,
-          '-preset', 'fast',
-          '-acodec', 'aac',
-          '-b:a', '128k'
+          '-vf scale=500:500',
+          '-vcodec libx264',
+          `-crf ${midCrf}`,
+          '-preset fast',
+          '-acodec aac',
+          '-b:a 96k'
         ])
         .on('end', resolve)
         .on('error', reject)
@@ -52,22 +81,20 @@ const compressToExactSize = async (inputPath, targetSize) => {
     const size = fs.statSync(tempOutput).size;
     console.log(`[CRF ${midCrf}] Output size: ${(size / 1024 / 1024).toFixed(2)} MB`);
 
-    if (size > targetSize) {
-      // Lớn hơn → nén mạnh hơn
-      minCrf = midCrf + 1;
+    if (size <= targetSize) {
       if (bestFitPath) fs.unlinkSync(bestFitPath);
       bestFitPath = tempOutput;
-      bestFitSize = size;
-    } else {
-      // Nhỏ hơn → bỏ, vì yêu cầu không được nhỏ hơn 5MB
-      fs.unlinkSync(tempOutput);
       maxCrf = midCrf - 1;
+    } else {
+      fs.unlinkSync(tempOutput);
+      minCrf = midCrf + 1;
     }
   }
 
-  if (!bestFitPath) throw new Error("Không thể nén về đúng 5MB (video sau resize quá nhẹ)");
+  if (bestFitPath) return bestFitPath;
 
-  return bestFitPath;
+  console.warn('[CRF] All CRF attempts failed. Falling back to bitrate...');
+  return null;
 };
 
 const resizeAndMaybeCompress = async (inputPath) => {
@@ -75,17 +102,23 @@ const resizeAndMaybeCompress = async (inputPath) => {
   await resizeVideo(inputPath, resizedPath);
 
   const resizedSize = fs.statSync(resizedPath).size;
-
   console.log(`[Resize] Size: ${(resizedSize / 1024 / 1024).toFixed(2)} MB`);
 
   if (resizedSize <= MAX_SIZE) {
-    // Không cần nén nữa
     return { finalPath: resizedPath, shouldClean: [] };
   }
 
-  // Phải nén
-  const compressedPath = await compressToExactSize(resizedPath, MAX_SIZE);
-  return { finalPath: compressedPath, shouldClean: [resizedPath] };
+  const crfPath = await compressToExactSize(resizedPath, MAX_SIZE);
+
+  if (crfPath) {
+    return { finalPath: crfPath, shouldClean: [resizedPath] };
+  }
+
+  const fallbackPath = path.join(TEMP_DIR, `bitrate_${Date.now()}.mp4`);
+  const duration = await getVideoDurationInSeconds(resizedPath);
+  await compressWithBitrate(resizedPath, fallbackPath, MAX_SIZE, duration);
+
+  return { finalPath: fallbackPath, shouldClean: [resizedPath] };
 };
 
 module.exports = { resizeAndMaybeCompress };
