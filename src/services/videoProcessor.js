@@ -67,6 +67,7 @@ const compress = (inputPath, outputPath, scale, fps, crf, audioBitrate = "32k") 
 
 // Hàm chính: crop nếu gốc nhỏ, nén nếu cần
 const resizeAndMaybeCompress = async (inputPath) => {
+  let shouldClean = [];
   const originalSize = fs.statSync(inputPath).size;
 
   if (originalSize <= MAX_SIZE) {
@@ -83,9 +84,10 @@ const resizeAndMaybeCompress = async (inputPath) => {
     console.log(`[Crop-only] Sau crop: ${(croppedSize / 1024 / 1024).toFixed(2)} MB`);
 
     if (croppedSize <= MAX_SIZE) {
-      return { finalPath: croppedPath, shouldClean: [] };
+      return { finalPath: croppedPath, shouldClean };
     } else {
       console.log(`[Crop-only] Sau crop vẫn > 5MB → tiếp tục nén.`);
+      shouldClean.push(croppedPath);
       inputPath = croppedPath;
     }
   }
@@ -115,7 +117,7 @@ const resizeAndMaybeCompress = async (inputPath) => {
 
           if (size <= MAX_SIZE) {
             if (lastOutput && fs.existsSync(lastOutput)) fs.unlinkSync(lastOutput);
-            return { finalPath: outputPath, shouldClean: [] };
+            return { finalPath: outputPath, shouldClean };
           } else {
             if (lastOutput && fs.existsSync(lastOutput)) fs.unlinkSync(lastOutput);
             lastOutput = outputPath;
@@ -128,6 +130,7 @@ const resizeAndMaybeCompress = async (inputPath) => {
     }
   }
 
+  if (lastOutput && fs.existsSync(lastOutput)) fs.unlinkSync(lastOutput);
   throw new Error("❌ Unable to compress video to 5MB or less.");
 };
 
