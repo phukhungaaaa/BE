@@ -7,7 +7,7 @@ if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
-// Lấy thông tin video gốc
+// Lấy thông tin video
 const getVideoInfo = (inputPath) => {
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(inputPath, (err, metadata) => {
@@ -15,48 +15,28 @@ const getVideoInfo = (inputPath) => {
       const videoStream = metadata.streams.find(s => s.codec_type === "video");
       const audioStream = metadata.streams.find(s => s.codec_type === "audio");
       resolve({
-        codec: videoStream?.codec_name || "libx264",
-        bitrate: videoStream?.bit_rate ? parseInt(videoStream.bit_rate) : null,
-        fps: eval(videoStream?.r_frame_rate || "30"),
+        width: videoStream.width,
+        height: videoStream.height,
+        fps: eval(videoStream.r_frame_rate || "30"),
+        duration: metadata.format.duration,
         audioBitrate: audioStream?.bit_rate ? parseInt(audioStream.bit_rate) : 32000
       });
     });
   });
 };
 
-// Bộ lọc crop hình vuông trung tâm (không scale)
-const centerSquareCropFilter = "crop='min(iw\\,ih)':'min(iw\\,ih)':(iw-min(iw\\,ih))/2:(ih-min(iw\\,ih))/2";
-
-// Crop-only (không nén nếu file nhỏ)
-const cropOnly = (inputPath, outputPath, codec = "libx264", crf = 24, audioBitrate = 128000) => {
+// Nén và crop theo cấu hình
+const compressAndCrop = (inputPath, outputPath, scale, fps, crf, audioBitrate) => {
+  const filter = `crop='min(iw\\,ih)':'min(iw\\,ih)':(iw-min(iw\\,ih))/2:(ih-min(iw\\,ih))/2,scale=${scale}:${scale}`;
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .outputOptions([
-        "-vf", centerSquareCropFilter,
-        "-vcodec", codec,
-        "-crf", `${crf}`,
-        "-preset", "fast",
-        "-acodec", "aac",
-        "-b:a", `${Math.floor(audioBitrate / 1000)}k`
-      ])
-      .on("end", resolve)
-      .on("error", reject)
-      .save(outputPath);
-  });
-};
-
-// Nén có crop
-const compress = (inputPath, outputPath, crf, fps, audioBitrate = "32k") => {
-  return new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
-      .outputOptions([
-        "-vf", centerSquareCropFilter,
+        "-vf", filter,
         "-r", `${fps}`,
         "-vcodec", "libx264",
         "-crf", `${crf}`,
         "-preset", "veryfast",
         "-tune", "film",
-        "-profile:v", "main",
         "-movflags", "+faststart",
         "-acodec", "aac",
         "-b:a", audioBitrate,
@@ -68,70 +48,40 @@ const compress = (inputPath, outputPath, crf, fps, audioBitrate = "32k") => {
   });
 };
 
+// Ước tính thông số phù hợp duy nhất cho video
+const estimateTargetParams = (info) => {
+  const { duration, width, height } = info;
+  const resolution = Math.min(width, height);
+  const scale = resolution >= 720 ? 720 : resolution;
+
+  const videoBitrate = Math.floor((MAX_SIZE * 8) / duration) - 32000; // Chừa 32kbps cho audio
+  const crf = videoBitrate > 800000 ? 24 : videoBitrate > 600000 ? 26 : 28;
+  const fps = duration < 10 ? 30 : duration < 30 ? 24 : 20;
+
+  return { scale, crf, fps, audioBitrate: "32k" };
+};
+
 // Hàm chính
 const resizeAndMaybeCompress = async (inputPath) => {
-  let shouldClean = [];
-  const originalSize = fs.statSync(inputPath).size;
+  const info = await getVideoInfo(inputPath);
+  const { scale, crf, fps, audioBitrate } = estimateTargetParams(info);
 
-  if (originalSize <= MAX_SIZE) {
-    const croppedPath = path.join(TEMP_DIR, `cropped_${Date.now()}.mp4`);
-    console.log(`[Crop-only] Gốc ≤ 5MB (${(originalSize / 1024 / 1024).toFixed(2)} MB), crop.`);
+  const outputPath = path.join(
+    TEMP_DIR,
+    `final_${scale}p_${fps}fps_crf${crf}_${Date.now()}.mp4`
+  );
 
-    const info = await getVideoInfo(inputPath);
-    const codec = info.codec === "hevc" ? "libx265" : "libx264";
-    const crf = 24;
-    const audioBitrate = info.audioBitrate || 32000;
+  console.log(`[Compress] scale=${scale}, fps=${fps}, crf=${crf}, audio=${audioBitrate}`);
 
-    await cropOnly(inputPath, croppedPath, codec, crf, audioBitrate);
-    const croppedSize = fs.statSync(croppedPath).size;
-    console.log(`[Crop-only] Sau crop: ${(croppedSize / 1024 / 1024).toFixed(2)} MB`);
+  await compressAndCrop(inputPath, outputPath, scale, fps, crf, audioBitrate);
+  const finalSize = fs.statSync(outputPath).size;
 
-    if (croppedSize <= MAX_SIZE) {
-      return { finalPath: croppedPath, shouldClean };
-    } else {
-      console.log(`[Crop-only] Sau crop vẫn > 5MB → tiếp tục nén.`);
-      shouldClean.push(croppedPath);
-      inputPath = croppedPath;
-    }
+  if (finalSize <= MAX_SIZE) {
+    return { finalPath: outputPath, shouldClean: [] };
   }
 
-  const fpsOptions = [30, 29, 28, 27, 26, 25, 24];
-  const crfOptions = Array.from({ length: 12 }, (_, i) => 24 + i);
-  const audioBitrate = "32k";
-
-  let lastOutput = null;
-
-  for (const crf of crfOptions) {
-    for (const fps of fpsOptions) {
-      const outputPath = path.join(
-        TEMP_DIR,
-        `compressed_${fps}fps_crf${crf}_${Date.now()}.mp4`
-      );
-
-      console.log(`[Try] fps=${fps} | crf=${crf}`);
-
-      try {
-        await compress(inputPath, outputPath, crf, fps, audioBitrate);
-        const size = fs.statSync(outputPath).size;
-
-        console.log(`[Result] ${(size / 1024 / 1024).toFixed(2)} MB @ fps=${fps} crf=${crf}`);
-
-        if (size <= MAX_SIZE) {
-          if (lastOutput && fs.existsSync(lastOutput)) fs.unlinkSync(lastOutput);
-          return { finalPath: outputPath, shouldClean };
-        } else {
-          if (lastOutput && fs.existsSync(lastOutput)) fs.unlinkSync(lastOutput);
-          lastOutput = outputPath;
-        }
-      } catch (err) {
-        console.error(`[Error] fps=${fps}, crf=${crf}: ${err.message}`);
-        if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-      }
-    }
-  }
-
-  if (lastOutput && fs.existsSync(lastOutput)) fs.unlinkSync(lastOutput);
-  throw new Error("❌ Unable to compress video to 5MB or less.");
+  if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+  throw new Error("❌ Compressed video exceeds 5MB.");
 };
 
 module.exports = {
