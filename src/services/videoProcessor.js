@@ -7,7 +7,7 @@ if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
-// Lấy thông tin video gốc bằng ffprobe
+// Lấy thông tin video gốc
 const getVideoInfo = (inputPath) => {
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(inputPath, (err, metadata) => {
@@ -24,15 +24,15 @@ const getVideoInfo = (inputPath) => {
   });
 };
 
-// Bộ filter scale + crop đảm bảo 500x500px, khung rộng nhất, không méo, không viền
-const smartCropFilter = "scale='if(gt(iw/ih,1),ceil(500*iw/ih/2)*2,500)':'if(gt(iw/ih,1),500,ceil(500*ih/iw/2)*2)',crop=500:500:(in_w-500)/2:(in_h-500)/2'";
+// Bộ lọc crop hình vuông trung tâm (không scale)
+const centerSquareCropFilter = "crop='min(iw\\,ih)':'min(iw\\,ih)':(iw-min(iw\\,ih))/2:(ih-min(iw\\,ih))/2";
 
-// Crop-only logic
+// Crop-only (không nén nếu file nhỏ)
 const cropOnly = (inputPath, outputPath, codec = "libx264", crf = 24, audioBitrate = 128000) => {
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .outputOptions([
-        "-vf", smartCropFilter,
+        "-vf", centerSquareCropFilter,
         "-vcodec", codec,
         "-crf", `${crf}`,
         "-preset", "fast",
@@ -45,12 +45,12 @@ const cropOnly = (inputPath, outputPath, codec = "libx264", crf = 24, audioBitra
   });
 };
 
-// Encode logic
+// Nén có crop
 const compress = (inputPath, outputPath, crf, fps, audioBitrate = "32k") => {
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .outputOptions([
-        "-vf", smartCropFilter,
+        "-vf", centerSquareCropFilter,
         "-r", `${fps}`,
         "-vcodec", "libx264",
         "-crf", `${crf}`,
@@ -68,7 +68,7 @@ const compress = (inputPath, outputPath, crf, fps, audioBitrate = "32k") => {
   });
 };
 
-// Hàm chính xử lý resize + compress
+// Hàm chính
 const resizeAndMaybeCompress = async (inputPath) => {
   let shouldClean = [];
   const originalSize = fs.statSync(inputPath).size;
