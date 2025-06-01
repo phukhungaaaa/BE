@@ -7,7 +7,6 @@ if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
-// Lấy thông tin video gốc bằng ffprobe
 const getVideoInfo = (inputPath) => {
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(inputPath, (err, metadata) => {
@@ -24,12 +23,12 @@ const getVideoInfo = (inputPath) => {
   });
 };
 
-// Crop 500x500, giữ codec, bitrate gốc, không méo hình
+// Crop 500x500 từ giữa, giữ tỷ lệ gốc, không viền
 const cropOnly = (inputPath, outputPath, codec = "libx264", crf = 24, audioBitrate = 128000) => {
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .outputOptions([
-        "-vf", "scale='if(gt(iw,ih),-1,500)':'if(gt(ih,iw),-1,500)',crop=500:500:(in_w-500)/2:(in_h-500)/2",
+        "-vf", "scale='if(gt(iw/ih,1),-1,500)':'if(gt(iw/ih,1),500,-1)',crop=500:500:(in_w-500)/2:(in_h-500)/2",
         "-vcodec", codec,
         "-crf", `${crf}`,
         "-preset", "fast",
@@ -42,12 +41,12 @@ const cropOnly = (inputPath, outputPath, codec = "libx264", crf = 24, audioBitra
   });
 };
 
-// Encode tổ hợp scale + crop + fps + crf
+// Compress: giữ tỷ lệ, crop giữa, giảm dần scale/fps/crf
 const compress = (inputPath, outputPath, scale, fps, crf, audioBitrate = "32k") => {
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .outputOptions([
-        "-vf", `scale='if(gt(iw,ih),-1,${scale})':'if(gt(ih,iw),-1,${scale})',crop=500:500:(in_w-500)/2:(in_h-500)/2`,
+        "-vf", `scale='if(gt(iw/ih,1),-1,${scale})':'if(gt(iw/ih,1),${scale},-1)',crop=500:500:(in_w-500)/2:(in_h-500)/2`,
         "-r", `${fps}`,
         "-vcodec", "libx264",
         "-crf", `${crf}`,
@@ -65,7 +64,6 @@ const compress = (inputPath, outputPath, scale, fps, crf, audioBitrate = "32k") 
   });
 };
 
-// Hàm chính: crop nếu gốc nhỏ, nén nếu cần
 const resizeAndMaybeCompress = async (inputPath) => {
   let shouldClean = [];
   const originalSize = fs.statSync(inputPath).size;
@@ -131,7 +129,7 @@ const resizeAndMaybeCompress = async (inputPath) => {
   }
 
   if (lastOutput && fs.existsSync(lastOutput)) fs.unlinkSync(lastOutput);
-  throw new Error("❌ Unable to compress video to 5MB or less.");
+  throw new Error("❌ Không thể nén video về ≤ 5MB.");
 };
 
 module.exports = {
