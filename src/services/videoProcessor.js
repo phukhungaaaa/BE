@@ -16,6 +16,8 @@ const getVideoInfo = (inputPath) => {
       const audioStream = metadata.streams.find(s => s.codec_type === "audio");
       resolve({
         codec: videoStream?.codec_name || "libx264",
+        width: videoStream?.width || 0,
+        height: videoStream?.height || 0,
         bitrate: videoStream?.bit_rate ? parseInt(videoStream.bit_rate) : null,
         fps: eval(videoStream?.r_frame_rate || "30"),
         audioBitrate: audioStream?.bit_rate ? parseInt(audioStream.bit_rate) : 32000
@@ -24,20 +26,23 @@ const getVideoInfo = (inputPath) => {
   });
 };
 
-// Bộ lọc crop hình vuông trung tâm (không scale)
-const centerSquareCropFilter = "crop='min(iw\\,ih)':'min(iw\\,ih)':(iw-min(iw\\,ih))/2:(ih-min(iw\\,ih))/2";
-
-// Crop-only (không nén nếu file nhỏ)
-const cropOnly = (inputPath, outputPath, codec = "libx264", crf = 24, audioBitrate = 128000) => {
+// Crop hình vuông trung tâm, auto scale nếu quá to
+const cropOnly = (inputPath, outputPath, info, crf = 24) => {
   return new Promise((resolve, reject) => {
+    const crop = "crop='min(iw\\,ih)':'min(iw\\,ih)':(iw-min(iw\\,ih))/2:(ih-min(iw\\,ih))/2";
+    const scale = Math.max(info.width, info.height) > 1080 ? ",scale=720:720" : "";
+    const filter = crop + scale;
+
     ffmpeg(inputPath)
       .outputOptions([
-        "-vf", centerSquareCropFilter,
-        "-vcodec", codec,
+        "-vf", filter,
+        "-vcodec", info.codec === "hevc" ? "libx265" : "libx264",
         "-crf", `${crf}`,
         "-preset", "fast",
+        "-pix_fmt", "yuv420p",
         "-acodec", "aac",
-        "-b:a", `${Math.floor(audioBitrate / 1000)}k`
+        "-b:a", `${Math.floor(info.audioBitrate / 1000)}k`,
+        "-movflags", "+faststart"
       ])
       .on("end", resolve)
       .on("error", reject)
@@ -48,15 +53,19 @@ const cropOnly = (inputPath, outputPath, codec = "libx264", crf = 24, audioBitra
 // Nén có crop
 const compress = (inputPath, outputPath, crf, fps, audioBitrate = "32k") => {
   return new Promise((resolve, reject) => {
+    const crop = "crop='min(iw\\,ih)':'min(iw\\,ih)':(iw-min(iw\\,ih))/2:(ih-min(iw\\,ih))/2";
+    const filter = `${crop},scale=720:720`;
+
     ffmpeg(inputPath)
       .outputOptions([
-        "-vf", centerSquareCropFilter,
+        "-vf", filter,
         "-r", `${fps}`,
         "-vcodec", "libx264",
         "-crf", `${crf}`,
         "-preset", "veryfast",
         "-tune", "film",
         "-profile:v", "main",
+        "-pix_fmt", "yuv420p",
         "-movflags", "+faststart",
         "-acodec", "aac",
         "-b:a", audioBitrate,
@@ -72,17 +81,17 @@ const compress = (inputPath, outputPath, crf, fps, audioBitrate = "32k") => {
 const resizeAndMaybeCompress = async (inputPath) => {
   let shouldClean = [];
   const originalSize = fs.statSync(inputPath).size;
+  const info = await getVideoInfo(inputPath);
 
+  // Nếu gốc đã nhỏ hơn 5MB
   if (originalSize <= MAX_SIZE) {
     const croppedPath = path.join(TEMP_DIR, `cropped_${Date.now()}.mp4`);
     console.log(`[Crop-only] Gốc ≤ 5MB (${(originalSize / 1024 / 1024).toFixed(2)} MB), crop.`);
 
-    const info = await getVideoInfo(inputPath);
-    const codec = info.codec === "hevc" ? "libx265" : "libx264";
-    const crf = 24;
-    const audioBitrate = info.audioBitrate || 32000;
+    // Xử lý CRF nhẹ dựa vào bitrate
+    const crf = info.bitrate && info.bitrate < 400_000 ? 28 : 24;
+    await cropOnly(inputPath, croppedPath, info, crf);
 
-    await cropOnly(inputPath, croppedPath, codec, crf, audioBitrate);
     const croppedSize = fs.statSync(croppedPath).size;
     console.log(`[Crop-only] Sau crop: ${(croppedSize / 1024 / 1024).toFixed(2)} MB`);
 
@@ -95,8 +104,9 @@ const resizeAndMaybeCompress = async (inputPath) => {
     }
   }
 
-  const fpsOptions = [30, 29, 28, 27, 26, 25, 24];
-  const crfOptions = Array.from({ length: 12 }, (_, i) => 24 + i);
+  // Nén
+  const fpsOptions = [30, 28, 26, 24];
+  const crfOptions = Array.from({ length: 10 }, (_, i) => 24 + i);
   const audioBitrate = "32k";
 
   let lastOutput = null;
@@ -131,7 +141,7 @@ const resizeAndMaybeCompress = async (inputPath) => {
   }
 
   if (lastOutput && fs.existsSync(lastOutput)) fs.unlinkSync(lastOutput);
-  throw new Error("❌ Unable to compress video to 5MB or less.");
+  throw new Error("❌ Không thể nén video xuống 5MB.");
 };
 
 module.exports = {
