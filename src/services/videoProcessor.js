@@ -7,6 +7,7 @@ if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
+// Lấy thông tin video gốc bằng ffprobe
 const getVideoInfo = (inputPath) => {
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(inputPath, (err, metadata) => {
@@ -23,12 +24,15 @@ const getVideoInfo = (inputPath) => {
   });
 };
 
-// Crop 500x500 từ giữa, giữ tỷ lệ gốc, không viền
+// Bộ filter scale + crop đảm bảo 500x500px, khung rộng nhất, không méo, không viền
+const smartCropFilter = "scale='if(gt(iw/ih,1),ceil(500*iw/ih/2)*2,500)':'if(gt(iw/ih,1),500,ceil(500*ih/iw/2)*2)',crop=500:500:(in_w-500)/2:(in_h-500)/2'";
+
+// Crop-only logic
 const cropOnly = (inputPath, outputPath, codec = "libx264", crf = 24, audioBitrate = 128000) => {
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .outputOptions([
-        "-vf", "scale='if(gt(iw/ih,1),-1,500)':'if(gt(iw/ih,1),500,-1)',crop=500:500:(in_w-500)/2:(in_h-500)/2",
+        "-vf", smartCropFilter,
         "-vcodec", codec,
         "-crf", `${crf}`,
         "-preset", "fast",
@@ -41,12 +45,12 @@ const cropOnly = (inputPath, outputPath, codec = "libx264", crf = 24, audioBitra
   });
 };
 
-// Compress: giữ tỷ lệ, crop giữa, giảm dần scale/fps/crf
-const compress = (inputPath, outputPath, scale, fps, crf, audioBitrate = "32k") => {
+// Encode logic
+const compress = (inputPath, outputPath, crf, fps, audioBitrate = "32k") => {
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .outputOptions([
-        "-vf", `scale='if(gt(iw/ih,1),-1,${scale})':'if(gt(iw/ih,1),${scale},-1)',crop=500:500:(in_w-500)/2:(in_h-500)/2`,
+        "-vf", smartCropFilter,
         "-r", `${fps}`,
         "-vcodec", "libx264",
         "-crf", `${crf}`,
@@ -64,13 +68,14 @@ const compress = (inputPath, outputPath, scale, fps, crf, audioBitrate = "32k") 
   });
 };
 
+// Hàm chính xử lý resize + compress
 const resizeAndMaybeCompress = async (inputPath) => {
   let shouldClean = [];
   const originalSize = fs.statSync(inputPath).size;
 
   if (originalSize <= MAX_SIZE) {
     const croppedPath = path.join(TEMP_DIR, `cropped_${Date.now()}.mp4`);
-    console.log(`[Crop-only] Gốc ≤ 5MB (${(originalSize / 1024 / 1024).toFixed(2)} MB), crop 500x500.`);
+    console.log(`[Crop-only] Gốc ≤ 5MB (${(originalSize / 1024 / 1024).toFixed(2)} MB), crop.`);
 
     const info = await getVideoInfo(inputPath);
     const codec = info.codec === "hevc" ? "libx265" : "libx264";
@@ -90,46 +95,43 @@ const resizeAndMaybeCompress = async (inputPath) => {
     }
   }
 
-  const scaleOptions = Array.from({ length: 16 }, (_, i) => 1080 - i * 40).filter(s => s >= 500);
   const fpsOptions = [30, 29, 28, 27, 26, 25, 24];
   const crfOptions = Array.from({ length: 12 }, (_, i) => 24 + i);
   const audioBitrate = "32k";
 
   let lastOutput = null;
 
-  for (const scale of scaleOptions) {
-    for (const crf of crfOptions) {
-      for (const fps of fpsOptions) {
-        const outputPath = path.join(
-          TEMP_DIR,
-          `compressed_${scale}px_${fps}fps_crf${crf}_${Date.now()}.mp4`
-        );
+  for (const crf of crfOptions) {
+    for (const fps of fpsOptions) {
+      const outputPath = path.join(
+        TEMP_DIR,
+        `compressed_${fps}fps_crf${crf}_${Date.now()}.mp4`
+      );
 
-        console.log(`[Try] scale=${scale}px | fps=${fps} | crf=${crf}`);
+      console.log(`[Try] fps=${fps} | crf=${crf}`);
 
-        try {
-          await compress(inputPath, outputPath, scale, fps, crf, audioBitrate);
-          const size = fs.statSync(outputPath).size;
+      try {
+        await compress(inputPath, outputPath, crf, fps, audioBitrate);
+        const size = fs.statSync(outputPath).size;
 
-          console.log(`[Result] ${(size / 1024 / 1024).toFixed(2)} MB @ scale=${scale} fps=${fps} crf=${crf}`);
+        console.log(`[Result] ${(size / 1024 / 1024).toFixed(2)} MB @ fps=${fps} crf=${crf}`);
 
-          if (size <= MAX_SIZE) {
-            if (lastOutput && fs.existsSync(lastOutput)) fs.unlinkSync(lastOutput);
-            return { finalPath: outputPath, shouldClean };
-          } else {
-            if (lastOutput && fs.existsSync(lastOutput)) fs.unlinkSync(lastOutput);
-            lastOutput = outputPath;
-          }
-        } catch (err) {
-          console.error(`[Error] scale=${scale}, fps=${fps}, crf=${crf}: ${err.message}`);
-          if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+        if (size <= MAX_SIZE) {
+          if (lastOutput && fs.existsSync(lastOutput)) fs.unlinkSync(lastOutput);
+          return { finalPath: outputPath, shouldClean };
+        } else {
+          if (lastOutput && fs.existsSync(lastOutput)) fs.unlinkSync(lastOutput);
+          lastOutput = outputPath;
         }
+      } catch (err) {
+        console.error(`[Error] fps=${fps}, crf=${crf}: ${err.message}`);
+        if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
       }
     }
   }
 
   if (lastOutput && fs.existsSync(lastOutput)) fs.unlinkSync(lastOutput);
-  throw new Error("❌ Không thể nén video về ≤ 5MB.");
+  throw new Error("❌ Unable to compress video to 5MB or less.");
 };
 
 module.exports = {
