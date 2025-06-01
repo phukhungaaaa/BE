@@ -24,12 +24,12 @@ const getVideoInfo = (inputPath) => {
   });
 };
 
-// Crop 500x500, giữ codec, bitrate gốc
+// Crop 500x500, giữ codec, bitrate gốc, không méo hình
 const cropOnly = (inputPath, outputPath, codec = "libx264", crf = 24, audioBitrate = 128000) => {
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .outputOptions([
-        "-vf", "scale='if(gt(iw,ih),-1,500)':'if(gt(ih,iw),-1,500)',crop=500:500",
+        "-vf", "scale='if(gt(iw,ih),-1,500)':'if(gt(ih,iw),-1,500)',crop=500:500:(in_w-500)/2:(in_h-500)/2",
         "-vcodec", codec,
         "-crf", `${crf}`,
         "-preset", "fast",
@@ -47,7 +47,7 @@ const compress = (inputPath, outputPath, scale, fps, crf, audioBitrate = "32k") 
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .outputOptions([
-        "-vf", `scale=${scale}:${scale},crop=500:500`,
+        "-vf", `scale='if(gt(iw,ih),-1,${scale})':'if(gt(ih,iw),-1,${scale})',crop=500:500:(in_w-500)/2:(in_h-500)/2`,
         "-r", `${fps}`,
         "-vcodec", "libx264",
         "-crf", `${crf}`,
