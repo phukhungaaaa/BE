@@ -19,7 +19,7 @@ const errorHandler = require("./src/helpers/error-handler.js");
 const app = express();
 app.use(
     cors({
-        origin: ["http://localhost:10000", "https://luckit-orpin.vercel.app"],
+        origin: ["http://localhost:10000", "https://locket.pw"],
         methods: ["GET", "POST"],
 
         // Nhằm cho phép client gửi cookie lên server
